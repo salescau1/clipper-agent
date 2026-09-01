@@ -94,7 +94,42 @@ sebelum menulis. Bukan regex. Cadangan asli di `temp/_backup_tests/`.
 
 ---
 
-## 4. Perbaikan Infrastruktur Test
+## 4. Stage 4 Subtitle — Diuji End-to-End (2026-09-01)
+
+Item 21 sebelumnya dinyatakan selesai, tapi pengujiannya dilakukan dari `.venv`.
+Stage 4 sebenarnya dijalankan `.whisperx-venv` sebagai subprocess
+(`main.py::_stage4_batch` baris 151) — menguji di venv yang salah membuat empat bug
+lolos. Semuanya ditemukan lewat render SRT sungguhan, bukan mock.
+
+| Bug | Gejala | Perbaikan |
+|---|---|---|
+| `openai` tidak ada di `.whisperx-venv` | Koreksi trilingual gagal senyap; subtitle keluar tapi looping & typo tak pernah dibersihkan | Pasang `openai 3.6.0`. Dry-run lebih dulu: 8 paket ditambah, **nol** ditimpa |
+| `.env` tidak pernah dibaca | `os.getenv("GEMINI_API_KEY")` selalu None → status `not_configured`. Menutupi bug pertama | `load_dotenv(_PROJECT_ROOT/".env")` di `correct_text_trilingual()` dan sebelum header CLI |
+| `KeyError: 'start'` | **Stage 4 crash total** di forced alignment | Segmen kini menyertakan `start: 0.0` + `end: len(audio)/16000.0`. Diperbaiki di `_run_whisperx_alignment()` dan `_run_cli()` |
+| Logika koreksi terduplikasi ~60 baris | Perbaikan pada fungsi bersama tak sampai ke jalur CLI | Keduanya kini memanggil `correct_text_trilingual()` |
+
+Akar masalah `.env`: pydantic-settings membaca `.env` ke objek `settings`, **tidak** ke
+`os.environ`. Tidak ada satu pun `load_dotenv()` di jalur `.whisperx-venv`.
+
+Bukti uji, klip nyata 137 detik dari `output/AD_REVIEW`:
+
+```
+Model              faster-whisper medium
+Koreksi trilingual success
+Kata ter-align     292 (unaligned 0)
+Entri SRT          292, terakhir 00:02:16,784 (< durasi 137,02s)
+Looping            nol
+Kosakata Sunda     kumaha, damang, atuh, euy, pisan, sadayana, tong diantep — lolos
+Jalur run()        transcribe_clip_whisperx() 18/18 kata, fallback 0
+```
+
+SRT berisi 1 kata per entri. Itu sengaja: `subtitle_target_words = 1` (config.py:81),
+supaya Stage 4 menulis sehalus mungkin sekali saja dan theme mengatur pengelompokan
+tanpa menjalankan Stage 4 ulang (~2 menit/klip).
+
+---
+
+## 5. Perbaikan Infrastruktur Test
 
 - **P2.10 tidak lagi flaky.** Dua akar masalah: selektor mencari `.slider-col` yang
   tidak ada, dan menunggu lapisan teks asinkron dengan tenggat tetap 2 detik. Sekarang
@@ -105,8 +140,10 @@ sebelum menulis. Bukan regex. Cadangan asli di `temp/_backup_tests/`.
 
 ---
 
-## 5. Catatan Teknis Historis
+## 6. Catatan Teknis Historis
 
+- 2026-09-01: Stage 4 diuji end-to-end dari `.whisperx-venv`; 4 bug ditemukan
+  (openai tidak terpasang, `.env` tak terbaca, `KeyError: 'start'`, logika duplikat).
 - 2026-09-01: Item 12, 21, 22, 23 diselesaikan; Kartu Creator dikembalikan; P2.10 distabilkan.
 - 2026-09-01: Download dan verifikasi model `faster-whisper-medium` (1.5GB) sukses,
   dan sekarang benar-benar terpakai (sebelumnya kode selalu memuat `small`).

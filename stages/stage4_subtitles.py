@@ -68,6 +68,19 @@ try:
 except ImportError:
     logger = None
 
+
+def _log_info(msg: str, *args: Any) -> None:
+    """Log info tanpa mengasumsikan logger tersedia.
+
+    `logger` bernilai None kalau `utils` tidak bisa diimpor (mode whisperx-venv-only).
+    Di lingkungan itu 53 pemanggilan `logger.info(...)` lain di file ini akan melempar
+    AttributeError; helper ini dipakai untuk jalur baru supaya tidak menambah risiko itu.
+    """
+    if logger is not None:
+        logger.info(msg, *args)
+    else:
+        print(f"      {msg % args if args else msg}")
+
 # Resolve models now (fails gracefully in whisperx-venv-only mode)
 try:
     ClipManifest, ClipManifestEntry, SubtitleGroup, SubtitleJob = _lazy_models()
@@ -408,12 +421,19 @@ def _run_whisperx_alignment(
             model_name=alignment_model,
         )
 
-        # Prepare transcript in WhisperX format (list of segments with text)
-        # WhisperX expects segments with 'text' field
-        transcript_segments = [{"text": cc_text}]
-
         # Load audio
         audio = whisperx.load_audio(str(audio_path))
+
+        # WhisperX 3.8.x MEWAJIBKAN tiap segmen punya "start" dan "end" — tanpa itu
+        # whisperx/alignment.py melempar KeyError: 'start'. Karena ini forced alignment
+        # atas satu blok teks utuh, rentangnya adalah seluruh audio: 0 -> durasi.
+        # SAMPLE_RATE whisperx = 16000, jadi durasi = jumlah sampel / 16000.
+        audio_duration = len(audio) / 16000.0
+        transcript_segments = [{
+            "text": cc_text,
+            "start": 0.0,
+            "end": audio_duration,
+        }]
 
         # Run forced alignment
         result = whisperx.align(
@@ -546,9 +566,25 @@ def correct_text_trilingual(
     if not raw_text.strip():
         return raw_text, "empty_input"
 
+    # .env WAJIB dibaca eksplisit di sini. Stage 4 dijalankan oleh .whisperx-venv
+    # sebagai subprocess (lihat main.py::_stage4_batch), dan di jalur itu tidak ada
+    # yang memuat .env: pydantic-settings di config.py membaca .env ke objek
+    # `settings`, TIDAK ke os.environ. Tanpa baris ini os.getenv("GEMINI_API_KEY")
+    # selalu None sehingga koreksi trilingual diam-diam dilewati dengan status
+    # "not_configured" — subtitle tetap keluar tapi looping & typo tidak pernah
+    # dibersihkan. Dibungkus try/except supaya lingkungan tanpa python-dotenv
+    # tetap jalan (fallback ke environment variable milik sistem).
+    if not os.getenv("GEMINI_API_KEY"):
+        try:
+            from dotenv import load_dotenv
+
+            load_dotenv(_PROJECT_ROOT / ".env")
+        except ImportError:
+            pass
+
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        logger.info("GEMINI_API_KEY kosong — koreksi trilingual dilewati.")
+        _log_info("GEMINI_API_KEY kosong — koreksi trilingual dilewati.")
         return raw_text, "not_configured"
 
     try:
@@ -1628,6 +1664,16 @@ def _run_cli() -> None:
         else video_path.with_suffix(".srt")
     )
 
+    # .env dimuat sebelum header dicetak supaya baris "Gemini: ON/OFF" jujur.
+    # Tanpa ini header selalu menulis OFF di jalur .whisperx-venv (os.environ kosong),
+    # padahal koreksinya nanti tetap jalan — bikin salah baca saat menonton log.
+    try:
+        from dotenv import load_dotenv
+
+        load_dotenv(_PROJECT_ROOT / ".env")
+    except ImportError:
+        pass
+
     print("=== CLIPPER WHISPERX SRT ===")
     print(f"MP4:        {video_path}")
     print(f"Source:     {args.youtube_url}")
@@ -1670,84 +1716,32 @@ def _run_cli() -> None:
                 })
         print(f"      Segments transcribed: {len(clip_segments)}")
         print(f"      Detected language: {info.language} ({info.language_probability:.2f})")
-        
-        # Trilingual Gemini Correction Step
-        import json
-        import os
-        from openai import OpenAI
-        from dotenv import load_dotenv
 
-        load_dotenv()
-        
-        gemini_api_key = os.getenv("GEMINI_API_KEY")
-        if gemini_api_key:
-            print("      Running Trilingual Gemini Correction...")
-            client = OpenAI(
-                base_url=os.getenv("LLM_BASE_URL", "https://api.openai.com/v1"),
-                api_key=gemini_api_key,
-                timeout=120.0,
-                max_retries=1,
-            )
-            
-            transcript_text = " ".join([seg["text"] for seg in clip_segments])
-            
-            # Mendapatkan judul dari manifest jika memungkinkan
-            video_title = "Unknown"
-            try:
-                manifest_path = find_stage2_manifest(video_id)
-                if manifest_path:
-                     raw = json.loads(manifest_path.read_text(encoding="utf-8"))
-                     video_title = raw.get("video_title", "Unknown")
-            except Exception:
-                pass
+        # Koreksi trilingual dipanggil dari fungsi bersama `correct_text_trilingual()`.
+        # Sebelumnya jalur CLI ini punya salinan logikanya sendiri (~60 baris duplikat):
+        # prompt, pemilihan model, dan penanganan error ditulis dua kali, sehingga
+        # perbaikan pada fungsi bersama (mis. pemuatan .env dan proteksi rasio panjang)
+        # tidak pernah sampai ke jalur yang dipakai stage4_batch.py.
+        transcript_text = " ".join(seg["text"] for seg in clip_segments)
 
-            prompt = f"""Teks transkrip ini berisi obrolan campuran Bahasa Indonesia, istilah gaul/Inggris, dan Bahasa Sunda.
-Konteks Judul Video: "{video_title}"
+        video_title = "Unknown"
+        try:
+            manifest_path = find_stage2_manifest(video_id)
+            if manifest_path:
+                raw_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                video_title = raw_manifest.get("video_title", "Unknown")
+        except Exception:
+            pass
 
-Tugas: Perbaiki salah dengar/typo dan hilangkan kata halusinasi/looping.
-Pertahankan kosakata asli Sunda (misal: 'kumaha', 'atuh', 'euy', 'naha', 'pisan', 'tong diantep', 'salakina') dan istilah Inggris tanpa diterjemahkan paksa.
-DILARANG menambah/mengurangi inti kalimat. Keluarkan teks yang sudah bersih.
-HANYA KELUARKAN TEKS BERSIH SAJA TANPA TAMBAHAN APAPUN.
-
-Transkrip mentah:
-{transcript_text}"""
-            
-            model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash").strip()
-            if "/" not in model:
-                model = f"ag/{model}"
-
-            try:
-                response = client.chat.completions.create(
-                    model=model,
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.3,
-                    max_tokens=2048,
-                )
-                corrected_text = response.choices[0].message.content.strip()
-                if corrected_text:
-                    print(f"      Gemini correction successful. Output length: {len(corrected_text)}")
-                    # Kita gunakan teks yang sudah dikoreksi sebagai cc_text
-                    cc_text_for_alignment = corrected_text
-                else:
-                    print("      Gemini returned empty text, falling back to raw transcript.")
-                    cc_text_for_alignment = transcript_text
-            except Exception as e:
-                print(f"      Gemini correction failed: {e}")
-                cc_text_for_alignment = transcript_text
-        else:
-             print("      GEMINI_API_KEY not found. Skipping Gemini correction.")
-             cc_text_for_alignment = " ".join([seg["text"] for seg in clip_segments])
+        cc_text_for_alignment, gemini_status = correct_text_trilingual(
+            transcript_text, video_title,
+        )
+        print(f"      Koreksi trilingual: {gemini_status}")
 
     except Exception as e:
         print(f"      faster-whisper failed: {e}")
         raise RuntimeError(f"Transcription failed: {e}")
     print(f"[2/4] Segments in clip: {len(clip_segments)}")
-
-    transcript_segments = [
-        {
-            "text": cc_text_for_alignment
-        }
-    ]
 
     print("[3/4] Loading audio + Indonesian WhisperX alignment model...")
     import whisperx
@@ -1756,6 +1750,14 @@ Transkrip mentah:
         language_code="id",
         device="cpu",
     )
+
+    # "start"/"end" WAJIB ada — whisperx 3.8.x membacanya langsung di alignment.py:210.
+    # Lihat komentar di _run_whisperx_alignment() untuk alasan lengkapnya.
+    transcript_segments = [{
+        "text": cc_text_for_alignment,
+        "start": 0.0,
+        "end": len(audio) / 16000.0,
+    }]
 
     print("      Running forced alignment (NO transcription)...")
     aligned = whisperx.align(

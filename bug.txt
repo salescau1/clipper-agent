@@ -5,6 +5,9 @@ Update terakhir: 2026-09-01
 Status verifikasi UI: 18/18 PASS di `tools/verify_customize_ui.py`, console_errors: 0.
 Status test suite : 367 passed | 0 failed. (18 test warisan lama yang mengunci perilaku
                     kode lama sudah dibuang — lihat [CATATAN TEST] di bawah.)
+Status Stage 4    : DIUJI END-TO-END dengan klip nyata 137s — SRT 292 entri, koreksi
+                    trilingual "success", nol looping. 4 bug ditemukan & diperbaiki,
+                    lihat [PERBAIKAN STAGE 4 SUBTITLE] di bawah.
 Rekap Progres     : 23 Selesai | 0 Terbuka
 
 ================================================================================
@@ -230,6 +233,62 @@ Cadangan file asli: `temp/_backup_tests/`.
 Sisa hal kecil yang TIDAK dikerjakan: beberapa import di ketiga file itu kini tidak
 terpakai lagi (mis. `MagicMock`, `stage1_run`, `_clip_overlaps` di test_models).
 Dibiarkan karena tidak menyebabkan error dan membersihkannya berisiko tanpa manfaat.
+
+================================================================================
+[PERBAIKAN STAGE 4 SUBTITLE — 2026-09-01, DITEMUKAN SAAT UJI END-TO-END]
+================================================================================
+Konteks: Item 21 sebelumnya dinyatakan selesai, TAPI pengujiannya dilakukan dari
+`.venv`. Stage 4 sebenarnya dijalankan oleh `.whisperx-venv` sebagai subprocess
+(main.py::_stage4_batch baris 151). Menguji di venv yang salah membuat tiga bug
+lolos. Ketiganya ditemukan dan diperbaiki hari ini lewat render SRT sungguhan.
+
+[x] S4.1 `openai` tidak terpasang di `.whisperx-venv`.
+   - Gejala: koreksi trilingual selalu gagal senyap; status "failed: No module
+     named 'openai'". Subtitle tetap keluar, pipeline tidak crash, tapi looping
+     dan typo TIDAK PERNAH dibersihkan. Fitur praktis mati.
+   - Perbaikan: `openai 3.6.0` dipasang ke `.whisperx-venv`.
+     Dry-run dulu: 8 paket DITAMBAH (openai, httpx2, httpcore2, anyio, h11,
+     jiter, sniffio, truststore), NOL paket ditimpa. whisperx 3.8.6,
+     faster-whisper 1.2.1, dan torch 2.8.0+cpu diverifikasi tetap sehat.
+
+[x] S4.2 `.env` tidak pernah dibaca di jalur `.whisperx-venv`.
+   - Gejala: `os.getenv("GEMINI_API_KEY")` selalu None -> koreksi dilewati
+     dengan status "not_configured". Ini bug KEDUA yang menutupi bug pertama:
+     walau `openai` sudah dipasang, koreksi tetap tidak jalan.
+   - Akar masalah: pydantic-settings di config.py membaca .env ke objek
+     `settings`, TIDAK ke `os.environ`. Tidak ada satu pun `load_dotenv()` di
+     jalur itu.
+   - Perbaikan: `load_dotenv(_PROJECT_ROOT / ".env")` di awal
+     `correct_text_trilingual()` (hanya kalau env var belum ada) dan sebelum
+     header CLI dicetak, supaya baris "Gemini: ON/OFF" di log tidak menipu.
+
+[x] S4.3 `KeyError: 'start'` — WhisperX 3.8.x menolak segmen tanpa start/end.
+   - Gejala: Stage 4 CRASH total di tahap forced alignment. Ini bug paling
+     serius: bukan gagal senyap, tapi seluruh Stage 4 mati.
+   - Akar masalah: kode mengirim `[{"text": ...}]` saja. whisperx 3.8.6 membaca
+     `segment["start"]` langsung di alignment.py:210 tanpa `.get()`.
+   - Perbaikan: segmen kini menyertakan `start: 0.0` dan
+     `end: len(audio)/16000.0` (SAMPLE_RATE whisperx = 16000). Diperbaiki di
+     DUA tempat: `_run_whisperx_alignment()` (dipakai run()) dan `_run_cli()`.
+
+[x] S4.4 Logika koreksi trilingual terduplikasi ~60 baris.
+   - `_run_cli()` punya salinan sendiri: prompt, pemilihan model, penanganan
+     error ditulis dua kali. Akibatnya perbaikan S4.2 tidak akan sampai ke
+     jalur CLI. Sekarang keduanya memanggil `correct_text_trilingual()`.
+
+BUKTI UJI NYATA (bukan mock), klip 137 detik dari output/AD_REVIEW:
+  Model              : faster-whisper medium (bukan small)
+  Koreksi trilingual : success
+  Kata ter-align     : 292, unaligned 0
+  Entri SRT          : 292, entri terakhir 00:02:16,784 (< durasi 137,02s)
+  Looping di SRT     : nol (dicek kata berulang 3x berturut)
+  Kosakata Sunda     : kumaha, damang, atuh, euy, pisan, sadayana, tong diantep
+                       SEMUA lolos tanpa diterjemahkan
+  Jalur run()        : transcribe_clip_whisperx() 18/18 kata ter-align, fallback 0
+
+CATATAN: SRT berisi 1 kata per entri. Itu SENGAJA — `subtitle_target_words = 1`
+di config.py baris 81, supaya Stage 4 menulis sehalus mungkin sekali saja dan
+theme bisa mengatur pengelompokan tanpa menjalankan Stage 4 ulang (~2 menit/klip).
 
 ================================================================================
 [PERBAIKAN INFRASTRUKTUR TEST — 2026-09-01]
