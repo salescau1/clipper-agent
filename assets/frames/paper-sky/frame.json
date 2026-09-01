@@ -1,0 +1,37 @@
+{
+  "id": "paper-sky",
+  "name": "Kertas Sky",
+  "category": "kertas",
+  "tags": [
+    "sky"
+  ],
+  "ratio": "9:16",
+  "canvas": {
+    "w": 1080,
+    "h": 1920
+  },
+  "video_slot": {
+    "scale": 1.0,
+    "y": 940,
+    "radius": 0,
+    "aspect": "16/9"
+  },
+  "subtitle_slot": {
+    "y": 1197,
+    "size": 80
+  },
+  "headline_slot": {
+    "x": 45,
+    "y": 55,
+    "size": 86
+  },
+  "recommended_subtitle": {
+    "animation": "word",
+    "color": "#FFFFFF",
+    "active_color": "#FFA500"
+  },
+  "window": {
+    "top": 503,
+    "bottom": 1377
+  }
+}

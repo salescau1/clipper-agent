@@ -1,0 +1,39 @@
+{
+  "id": "win98-classic",
+  "name": "Classic Win98 Retro",
+  "category": "retro",
+  "tags": [
+    "retro",
+    "win98",
+    "y2k"
+  ],
+  "ratio": "9:16",
+  "canvas": {
+    "w": 1080,
+    "h": 1920
+  },
+  "video_slot": {
+    "scale": 1.0,
+    "y": 960,
+    "radius": 0,
+    "aspect": "16/9"
+  },
+  "subtitle_slot": {
+    "y": 1240,
+    "size": 80
+  },
+  "headline_slot": {
+    "x": 45,
+    "y": 55,
+    "size": 86
+  },
+  "recommended_subtitle": {
+    "animation": "word",
+    "color": "#FFFFFF",
+    "active_color": "#FFA500"
+  },
+  "window": {
+    "top": 500,
+    "bottom": 1420
+  }
+}

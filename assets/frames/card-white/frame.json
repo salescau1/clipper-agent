@@ -1,0 +1,39 @@
+{
+  "id": "card-white",
+  "name": "Clean White Card",
+  "category": "minimal",
+  "tags": [
+    "white",
+    "clean",
+    "minimal"
+  ],
+  "ratio": "9:16",
+  "canvas": {
+    "w": 1080,
+    "h": 1920
+  },
+  "video_slot": {
+    "scale": 1.0,
+    "y": 960,
+    "radius": 0,
+    "aspect": "16/9"
+  },
+  "subtitle_slot": {
+    "y": 1220,
+    "size": 80
+  },
+  "headline_slot": {
+    "x": 45,
+    "y": 55,
+    "size": 86
+  },
+  "recommended_subtitle": {
+    "animation": "word",
+    "color": "#FFFFFF",
+    "active_color": "#FFA500"
+  },
+  "window": {
+    "top": 520,
+    "bottom": 1400
+  }
+}

@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Virtualenv. `.whisperx-venv` WAJIB ada di sini: isinya 2,1 GB (torch + model
+# pyannote). Dulu hanya `.venv/` yang dikecualikan, dan itu lubang besar —
+# `git add .` pertama langsung menyertakan 2 GB dependensi.
+.venv/
+.whisperx-venv/
+venv/
+
+# Environment & secrets
+.env
+
+# Runtime output
+output/
+cache/
+logs/
+temp/
+final/
+
+# Aset berat yang bukan bagian desain UI. `sfx` = 14 MB file suara yang bisa
+# diunduh/diganti kapan saja; menaruhnya di git membengkakkan repo tanpa manfaat.
+# Font, frame, dan overlay TETAP ikut karena itu bagian dari tampilan yang disepakati.
+assets/sfx/
+
+# Video & SRT uji coba. Dua MP4 di sini berukuran 75 MB dan 93 MB — di atas batas
+# 100 MB GitHub per file kalau nanti bertambah, dan tidak ada gunanya di riwayat.
+# PNG contoh frame tetap ikut karena itu referensi desain.
+sampleframe/*.mp4
+sampleframe/*.srt
+
+# Karantina hasil tools/cleanup.py (bisa dihapus manual kalau sudah yakin)
+_trash_*/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/

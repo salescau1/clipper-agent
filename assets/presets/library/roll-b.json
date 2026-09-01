@@ -1,0 +1,99 @@
+{
+  "canvas": {
+    "w": 1080,
+    "h": 1920,
+    "id": "9x16"
+  },
+  "frame": {
+    "id": "film-35mm",
+    "path": ""
+  },
+  "video": {
+    "scale": 1.4465,
+    "x": 0,
+    "y": 502,
+    "radius": 0,
+    "aspect": "16/9"
+  },
+  "subtitle": {
+    "font": "Bungee-Regular.ttf",
+    "size": 94,
+    "y": 1356,
+    "align": "center",
+    "max_lines": 2,
+    "line_spacing": -0.15,
+    "outline": 7,
+    "outline_mode": "outer",
+    "outline_color": "",
+    "shadow_enabled": true,
+    "shadow_x": 6,
+    "shadow_y": 7,
+    "shadow_color": "#000000",
+    "shadow_blur": 0,
+    "layer_order": "shadow-stroke-fill",
+    "color": "#FFFFFF",
+    "active_color": "#FFA500",
+    "animation": "pop",
+    "words_per_line": 3
+  },
+  "headline": {
+    "enabled": true,
+    "text": "HEADLINE 1 HEADLINE 2 HEADLINE 3 HEADLINE 4",
+    "gemini_default": false,
+    "font": "title.ttf",
+    "size": 90,
+    "x": 43,
+    "y": 57,
+    "max_lines": 4,
+    "align": "center",
+    "line_spacing": -0.46,
+    "outline": 11,
+    "outline_mode": "outer",
+    "outline_color": "",
+    "shadow_enabled": true,
+    "shadow_x": 8,
+    "shadow_y": 8,
+    "shadow_color": "#000000",
+    "shadow_blur": 0,
+    "layer_order": "shadow-stroke-fill",
+    "color": "#FFFFFF"
+  },
+  "watermark": {
+    "enabled": true,
+    "text": "Creator!",
+    "font": "title.ttf",
+    "size": 85,
+    "x": 31,
+    "y": 1586,
+    "max_lines": 1,
+    "align": "left",
+    "outline": 19,
+    "outline_mode": "outer",
+    "outline_color": "",
+    "shadow_enabled": true,
+    "shadow_x": 6,
+    "shadow_y": 6,
+    "shadow_color": "#000000",
+    "shadow_blur": 0,
+    "layer_order": "shadow-stroke-fill",
+    "color": "#D94B0A"
+  },
+  "custom_png": {
+    "enabled": true,
+    "path": "assets/overlays/kelap-kelip.png",
+    "x": 644,
+    "y": 1416,
+    "width": 428,
+    "opacity": 1
+  },
+  "export": {
+    "w": 1080,
+    "h": 1920,
+    "crf": 18,
+    "preset": "medium"
+  },
+  "_meta": {
+    "name": "Roll B",
+    "updated": 1788208551.6676283
+  }
+}

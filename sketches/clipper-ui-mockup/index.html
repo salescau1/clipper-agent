@@ -1,0 +1,1847 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Clipper Customize</title>
+<style id="localfonts">@font-face{font-family:'Anton';font-weight:400;font-display:swap;src:url('fonts/Anton-400.woff2') format('woff2')}@font-face{font-family:'Bebas Neue';font-weight:400;font-display:swap;src:url('fonts/BebasNeue-400.woff2') format('woff2')}@font-face{font-family:'Bungee';font-weight:400;font-display:swap;src:url('fonts/Bungee-400.woff2') format('woff2')}@font-face{font-family:'Inter';font-weight:700;font-display:swap;src:url('fonts/Inter-700.woff2') format('woff2')}@font-face{font-family:'Inter';font-weight:900;font-display:swap;src:url('fonts/Inter-900.woff2') format('woff2')}@font-face{font-family:'Montserrat';font-weight:900;font-display:swap;src:url('fonts/Montserrat-900.woff2') format('woff2')}@font-face{font-family:'Oswald';font-weight:700;font-display:swap;src:url('fonts/Oswald-700.woff2') format('woff2')}@font-face{font-family:'Poppins';font-weight:900;font-display:swap;src:url('fonts/Poppins-900.woff2') format('woff2')}@font-face{font-family:'Roboto Condensed';font-weight:900;font-display:swap;src:url('fonts/RobotoCondensed-900.woff2') format('woff2')}</style>
+<style>
+*{box-sizing:border-box}
+:root{
+ --bg:#0B1220;--bg2:#070C16;--panel:rgba(255,255,255,.045);--panel2:rgba(255,255,255,.07);
+ --line:rgba(255,255,255,.10);--line2:rgba(255,255,255,.18);
+ --text:#EAF2FF;--muted:#8FA5BF;--brand:#72E8FF;--brand2:#7C6BFF;--ok:#77F7B2;--warn:#FACC15;--bad:#FF8B8B;
+ --r:14px;--r2:18px;
+ --left-w: 240px;
+}
+html,body{height:100%}
+body{margin:0;font-family:Inter,"Segoe UI",Arial,sans-serif;font-size:13px;color:var(--text);
+ background:radial-gradient(1200px 500px at 15% -10%,rgba(114,232,255,.10),transparent 60%),
+            radial-gradient(900px 420px at 85% -6%,rgba(124,107,255,.12),transparent 62%),
+            linear-gradient(180deg,var(--bg),var(--bg2));overflow:hidden}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:0}
+::-webkit-scrollbar{width:7px;height:7px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:9px}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.24)}
+
+/* ---------- shell ---------- */
+.wrap{height:100vh;display:flex;flex-direction:column;padding:12px 14px 14px;gap:10px}
+.bar{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.bar .grow{flex:1}
+.btn{border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:8px 13px;font-weight:800;font-size:12.5px;
+ display:inline-flex;align-items:center;gap:7px;transition:.15s;white-space:nowrap}
+.btn:hover{border-color:var(--line2);background:rgba(255,255,255,.11)}
+.btn.pri{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#06101D;border-color:transparent;
+ box-shadow:0 8px 26px rgba(114,232,255,.22)}
+.btn.pri:hover{filter:brightness(1.07)}
+.btn.sm{padding:6px 10px;font-size:11.5px;border-radius:10px}
+.btn.ico{padding:6px 8px}
+.seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:3px;gap:2px}
+.seg button{padding:6px 12px;border-radius:9px;font-weight:800;font-size:12px;color:var(--muted)}
+.seg button.on{background:rgba(114,232,255,.16);color:#EAFAFF}
+
+/* ---------- 3 columns ---------- */
+.grid{flex:1;min-height:0;display:grid;grid-template-columns:minmax(255px,var(--left-w)) 6px minmax(300px,1fr) 320px;gap:6px;align-items:stretch}
+.col{background:var(--panel);border:1px solid var(--line);border-radius:var(--r2);padding:10px;min-width:0;
+ display:flex;flex-direction:column;gap:8px;overflow:hidden;height:100%}
+.col.mid{background:radial-gradient(700px 380px at 50% 0,rgba(114,232,255,.07),transparent 65%),rgba(3,7,18,.55);
+ align-items:center;padding:10px 10px 12px}
+.scroll{overflow-y:auto;overflow-x:hidden;min-height:0;flex:1;padding-right:3px}
+.row{display:flex;gap:6px}
+.row>*{flex:1}
+/* ---------- tiny toolbar (left col header) ---------- */
+.chead{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+.chead .t{font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#C8D8EA;flex:1}
+.chead .tslabel{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
+ color:var(--muted);white-space:nowrap}
+.thumb-sizes{display:flex;align-items:center;gap:3px}
+.thumb-sizes .btn{width:24px;height:22px;padding:0;display:grid;place-items:center}
+.thumb-sizes .btn svg{display:block}
+/* Warna aksen aktif: ikon yang sedang dipilih harus JELAS berbeda (bug.txt P4.15). */
+.thumb-sizes .btn{color:var(--muted)}
+.thumb-sizes .btn.on{border-color:var(--brand);background:rgba(114,232,255,.18);color:var(--brand)}
+.lib-actions{display:flex;gap:6px;align-items:center;margin-bottom:8px;flex:0 0 auto;flex-wrap:nowrap}
+
+.inp{width:100%;background:rgba(3,7,18,.7);border:1px solid var(--line);border-radius:11px;padding:8px 10px;outline:0;font-size:12.5px}
+.inp:focus{border-color:var(--brand)}
+select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+ background-position:calc(100% - 15px) 51%,calc(100% - 10px) 51%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:26px}
+
+/* Resizer handle */
+.resizer{width:6px;cursor:col-resize;background:transparent;transition:background .2s;border-radius:4px;user-select:none}
+.resizer:hover,.resizer.dragging{background:var(--brand)}
+
+/* ---------- LIBRARY: layout FIXED, scroll hanya di dalam kategori ----------
+   bug.txt P2.7: scroll utama `#libraryScroll` dimatikan total. Panel dibagi dengan
+   flexbox: tiap kartu accordion yang TERTUTUP setinggi headernya, yang TERBUKA
+   mendapat sisa ruang dan isinya (grid/daftar) yang menggulir sendiri. Dengan begitu
+   menggulir Frame tidak pernah menggeser seksi lain dan Theme tidak terdorong keluar
+   layar (dua keluhan user 2026-09-01).
+   `overscroll-behavior:contain` mencegah roda mouse menular ke panel induk. */
+#libraryScroll{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:6px}
+#libraryScroll>.acc{margin-bottom:0;flex:0 0 auto;display:flex;flex-direction:column;min-height:0}
+#libraryScroll>.acc.on{flex:1 1 auto;min-height:120px}
+#libraryScroll>.acc>.acc-h{flex:0 0 auto}
+/* `min-height:0` pada BODY kartu terbuka WAJIB: tanpa itu tinggi minimum flex-item
+   default (auto = setinggi isi) membuat kartu memanjang mengikuti 21 kartu frame,
+   grid ikut setinggi isinya, dan tidak ada yang menggulir — panel malah terpotong.
+   Ini bug yang membuat scroll internal tidak pernah aktif. */
+#libraryScroll>.acc.on>.acc-b{flex:1 1 auto;min-height:0;overflow:hidden}
+#libraryScroll .acc-b>.cards,
+#libraryScroll .acc-b>.flist{flex:1 1 auto;min-height:0;
+ overscroll-behavior:contain;overflow-y:auto;overflow-x:hidden;padding-right:3px}
+
+/* ---------- frame + theme cards ----------
+   bug.txt P1.4 + P2.9: lebar DAN tinggi kartu TETAP dalam px, bukan `1fr` dan bukan
+   `aspect-ratio`. Melebarkan panel menambah JUMLAH kolom, tidak membesarkan kartu.
+
+   Kenapa px, bukan aspect-ratio: `.card` adalah button, dan Chromium membungkus isi
+   tombol dalam kotak anonim yang mengabaikan aspect-ratio anaknya — hasil ukurannya
+   96×34 px (gepeng), tepat bug yang dilaporkan user. Tinggi eksplisit menghilangkan
+   ketergantungan pada quirk itu.
+   `background-size:contain` menjaga rasio GAMBAR di dalam kotak: tidak pernah
+   diregangkan maupun dipotong. */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,var(--thumb-w,96px));
+ gap:6px;align-content:start;justify-content:start}
+.cards.thumb-small{--thumb-w:68px;--thumb-h:121px;gap:5px}
+.cards.thumb-norm{--thumb-w:96px;--thumb-h:171px}
+
+/* Tinggi kartu diberikan EKSPLISIT, tidak diturunkan dari isinya. Alasannya diukur,
+   bukan dugaan: `.card` adalah button, dan Chromium membungkus isi tombol dalam
+   kotak anonim yang tidak menyumbang tinggi ke grid — hasil pengukuran kartu 29px
+   padahal `scrollHeight` isinya 171px. Akibatnya dua bug sekaligus: kartu gepeng
+   (P1.4) dan grid tidak pernah cukup tinggi untuk memunculkan scroll internal (P2.7).
+   Dengan tinggi eksplisit, ukuran kartu tidak lagi bergantung pada quirk itu. */
+.card{position:relative;display:block;height:var(--thumb-h,171px);
+ border:1px solid var(--line);background:var(--panel);border-radius:10px;overflow:hidden;
+ transition:.15s;text-align:left;width:100%;padding:0;cursor:pointer}
+.card:hover{border-color:var(--line2);background:rgba(255,255,255,.085)}
+.card.on{border-color:var(--brand);box-shadow:0 0 0 1.5px var(--brand) inset}
+
+/* Thumbnail mengisi kartu; `contain` menjaga rasio GAMBAR (tidak diregangkan/dipotong). */
+.card .th{position:absolute;inset:0;display:block;
+ background:#0F172A center/contain no-repeat}
+
+.card .center-overlay{position:absolute;inset:0;background:rgba(7,11,20,.65);display:flex;flex-direction:column;justify-content:center;align-items:center;padding:6px;text-align:center;transition:background .15s}
+.card:hover .center-overlay{background:rgba(7,11,20,.40)}
+.card.on .center-overlay{background:rgba(12,28,48,.55)}
+
+.card .center-overlay b{display:block;font-size:11px;font-weight:800;color:#FFFFFF;text-shadow:0 2px 4px rgba(0,0,0,.9);line-height:1.2;margin-bottom:2px;word-break:break-word}
+.cards.thumb-small .card .center-overlay b{font-size:9.5px}
+
+.card .center-overlay small{color:#CBD5E1;font-size:9px;text-shadow:0 1px 3px rgba(0,0,0,.9);line-height:1.1;opacity:.9;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cards.thumb-small .card .center-overlay small{display:none}
+
+/* Tombol hapus item: ikon tempat sampah merah (bug.txt P4.20) */
+.card .x{position:absolute;top:4px;right:4px;z-index:4;width:20px;height:20px;border-radius:6px;border:1px solid var(--line2);
+ background:rgba(3,7,18,.85);color:var(--bad);font-size:11px;line-height:1;display:grid;place-items:center;opacity:0;transition:.15s}
+.card:hover .x{opacity:1}
+.card .x:hover{background:#7F1D1D;color:#fff}
+
+.empty{color:var(--muted);font-size:11.5px;padding:12px 6px;text-align:center;line-height:1.5}
+
+/* ---------- middle: toolbar 1 baris ---------- */
+.mbar{display:flex;align-items:center;gap:10px;width:100%;flex:0 0 auto;
+ background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:5px 8px}
+.mbar .mid{flex:1;text-align:center;font-size:11px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+ white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mbar .mid.out{color:var(--ok)}
+.zoom{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+.zoom input[type=range]{width:88px;padding:0;background:transparent;border:0}
+.zoom .v{font-size:11px;font-weight:900;color:#C8D8EA;min-width:34px;text-align:right;font-variant-numeric:tabular-nums}
+.zb{border:1px solid var(--line);background:var(--panel2);border-radius:8px;width:22px;height:22px;font-weight:900;font-size:13px;
+ line-height:1;display:grid;place-items:center;color:#DCEAFF}
+.zb:hover{border-color:var(--brand)}
+
+/* ---------- canvas / preview (ZOOM ONLY APPLIES TO #stage) ---------- */
+.vp{flex:1;min-height:0;width:100%;display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:8px 0}
+#stage{transform:scale(var(--zoom,1));transform-origin:top center;transition:transform .07s linear;margin:auto}
+.rc{position:relative;width:var(--rcw,250px);height:var(--rch,444px);border-radius:20px;
+ background:linear-gradient(180deg,#06111F,#101E33);border:1px solid rgba(255,255,255,.2);box-shadow:0 24px 70px rgba(0,0,0,.6)}
+.rc.output{overflow:hidden}
+.rc.adjust{overflow:visible}
+/* Video: `--vx` adalah GESERAN dari tengah (0 = center), sama artinya dengan
+   `video.x` di preset dan `video_geometry()` di renderer. translateX(-50%) menaruh
+   kotak di tengah, lalu --vx menggesernya. */
+.rc .vid{position:absolute;left:50%;top:var(--vy);transform:translateX(-50%) translateX(var(--vx,0px));width:var(--vw);aspect-ratio:var(--vratio);
+ border-radius:var(--vr);background:linear-gradient(145deg,#334155,#020617);border:2px solid rgba(255,255,255,.6);
+ display:grid;place-items:center;color:#ffffff99;font-weight:900;letter-spacing:.14em;font-size:10px;overflow:hidden;z-index:1}
+/* Blur background (item 23). Renderer memakai:
+     scale cover 9:16 -> boxblur(radius) -> colorchannelmixer 0.6 (digelapkan)
+   Preview meniru urutan yang SAMA sebagai lapisan sendiri di bawah video (z-index 0):
+   isi kanvas penuh, di-blur sebesar --blurpx, lalu brightness .6.
+   Kalau preview cuma menggelapkan tanpa blur, user melihat hasil render yang berbeda
+   dari yang ia atur — itu bug yang pernah dilaporkan (preview != render). */
+.rc.blur-bg::before{content:"";position:absolute;inset:0;border-radius:inherit;z-index:0;
+ background:linear-gradient(145deg,#334155,#020617);
+ filter:blur(var(--blurpx,6px)) brightness(.6);pointer-events:none}
+.rc .frameimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:inherit;pointer-events:none;z-index:5}
+.rc .safe{position:absolute;left:5%;right:5%;top:4%;bottom:8%;border:1px dashed rgba(250,204,21,.7);border-radius:12px;
+ pointer-events:none;z-index:4;display:none}
+.rc.adjust .safe.on{display:block}
+.rc .cropwin{position:absolute;inset:0;border-radius:20px;box-shadow:0 0 0 2000px rgba(3,7,18,.74);border:2px dashed var(--brand);
+ pointer-events:none;z-index:5;display:none}
+.rc.adjust .cropwin{display:block}
+
+.rc .tlayer{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;
+ pointer-events:none;image-rendering:auto}
+.rc .sublayer{z-index:10}
+.rc .wmlayer{z-index:11}
+.rc .headlayer{z-index:12}
+.rc .tlayer:not([src]),.rc .tlayer[src=""]{display:none}
+.rc .ic{position:absolute;left:var(--icx,16px);top:var(--icy,84px);width:var(--icsize,64px);
+ z-index:8;opacity:var(--icop,1)}
+.rc .ic img{display:block;width:100%;border-radius:5px}
+.rc .ic.empty{display:none}
+/* ---------- inspector ---------- */
+.acc{border:1px solid var(--line);border-radius:13px;background:var(--panel);overflow:hidden;margin-bottom:6px}
+.acc-h{display:flex;align-items:center;justify-content:space-between;width:100%;padding:9px 11px;font-weight:800;font-size:12.5px}
+.acc-h .r{display:flex;align-items:center;gap:8px}
+.acc-h .chev{color:var(--muted);font-size:10px;transition:transform .18s}
+.acc.on .acc-h .chev{transform:rotate(180deg)}
+.acc-b{display:none;padding:2px 11px 11px;flex-direction:column;gap:7px}
+.acc.on .acc-b{display:flex}
+.ctl{display:grid;grid-template-columns:1fr 74px;gap:8px;align-items:center}
+.ctl.full{grid-template-columns:1fr}
+.ctl label{font-size:12px;color:#C8D8EA;font-weight:700}
+.ctl input[type=range]{padding:0;background:transparent;border:0;width:100%}
+.ctl .num{font-size:11px;font-weight:900;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.sw{position:relative;width:34px;height:19px;border-radius:99px;background:rgba(255,255,255,.14);border:1px solid var(--line);flex:0 0 auto}
+.sw:after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#9FB4CC;transition:.16s}
+.sw.on{background:rgba(114,232,255,.32);border-color:var(--brand)}
+.sw.on:after{left:17px;background:var(--brand)}
+.hint{font-size:11px;color:var(--muted);line-height:1.5}
+.strokeWrap{display:flex;flex-direction:column;gap:2px}
+.strokeEnds{display:flex;justify-content:space-between;font-size:9.5px;font-weight:800;
+ letter-spacing:.04em;color:#61748C;text-transform:uppercase;padding:0 1px}
+.hint code{background:rgba(255,255,255,.08);padding:1px 4px;border-radius:4px;font-size:10.5px}
+
+/* color picker block (Hue & Lightness slider DIBUANG — item 22) */
+.cp{display:flex;flex-direction:column;gap:6px}
+.cp .sw5{display:flex;gap:6px;align-items:center}
+.dot{width:22px;height:22px;border-radius:50%;border:2px solid rgba(255,255,255,.75);flex:0 0 auto;transition:.14s}
+.dot:hover{transform:scale(1.12)}
+.dot.on{box-shadow:0 0 0 2px var(--brand)}
+.cp .native{width:30px;height:22px;border:1px solid var(--line);border-radius:6px;background:transparent;padding:0;flex:0 0 auto}
+.cval{font-family:ui-monospace,Consolas,monospace;font-size:10.5px;color:var(--muted);letter-spacing:.04em}
+
+/* divider — garis pemisah 2 kelompok dalam satu seksi (item 22) */
+.divider{height:1px;background:var(--line);margin:4px 0}
+
+/* peringatan di dalam panel Style. BUKAN `.hint`: seluruh teks keterangan kecil dibuang
+   di item 22, tapi peringatan "warna shadow == outline" harus tetap terlihat karena ia
+   menandakan setelan yang membuat efek 3D hilang. Warnanya dibedakan supaya jelas ini
+   peringatan, bukan keterangan biasa. */
+.warnline{font-size:10.5px;line-height:1.35;color:#FCA5A5;background:rgba(220,38,38,.12);
+ border:1px solid rgba(220,38,38,.35);border-radius:8px;padding:5px 7px;margin:2px 0}
+
+/* slider X/Y side-by-side (item 22) */
+.ctl-xy{display:flex;align-items:center;gap:6px;margin-bottom:2px}
+.ctl-xy .xy-label{font-size:11px;font-weight:800;color:var(--muted);flex:0 0 16px;text-align:center}
+.ctl-xy input[type=range]{flex:1;padding:0;background:transparent;border:0;min-width:0}
+.ctl-xy .xy-num{width:52px;flex:0 0 52px;font-size:11px;font-weight:800;color:#C8D8EA;text-align:center;
+ background:rgba(3,7,18,.7);border:1px solid var(--line);border-radius:7px;padding:3px 4px;
+ font-variant-numeric:tabular-nums;-moz-appearance:textfield}
+.ctl-xy .xy-num::-webkit-inner-spin-button,.ctl-xy .xy-num::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+
+/* thumbnail gambar Intro Cover (item 12). Rasio 9:16 supaya user langsung melihat
+   bagian mana dari gambarnya yang benar-benar terpakai (render memakai cover-crop). */
+.introthumb{width:64px;aspect-ratio:9/16;border-radius:8px;border:1px solid var(--line);
+ background-size:cover;background-position:center;margin:2px 0}
+
+/* font rows. CATATAN: TANPA max-height di sini — tinggi dan scroll-nya diatur oleh
+   aturan `#libraryScroll .acc-b>.flist` di p2.css (layout Library fixed per-seksi).
+   max-height tetap di sini akan mengunci daftar font di 190px dan membuat sisa ruang
+   panel kosong saat kartu Font dibuka. */
+.flist{display:flex;flex-direction:column;gap:5px}
+.frow{display:flex;align-items:center;gap:7px;padding:6px 8px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.frow .n{flex:1;min-width:0;font-size:12.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .kb{font-size:10px;color:var(--muted);font-weight:700}
+.frow .lock{font-size:9.5px;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:1px 5px;font-weight:800}
+.frow .x{border:1px solid var(--line);background:var(--panel2);border-radius:7px;width:22px;height:22px;color:var(--bad);
+ line-height:1;display:grid;place-items:center;flex:0 0 auto;font-size:11px}
+.frow .x:hover{background:#7F1D1D;color:#fff}
+
+/* toast + modal */
+.toast{position:fixed;right:16px;bottom:14px;background:#0A1526;border:1px solid var(--line2);box-shadow:0 16px 44px rgba(0,0,0,.5);
+ padding:10px 14px;border-radius:12px;font-size:12.5px;font-weight:700;display:none;z-index:50;max-width:340px}
+.toast.on{display:block;animation:sf .18s ease}
+@media(max-width:1150px){.grid{grid-template-columns:200px 1fr 290px}}
+@media(max-width:980px){.grid{grid-template-columns:1fr;overflow-y:auto}.col{max-height:none}}
+</style>
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+</head>
+<body>
+  <div class="wrap">
+
+    <!-- top action bar -->
+    <div class="bar">
+      <div class="grow"></div>
+      <span class="hint" id="applyState"></span>
+      <button class="btn sm" id="bRandom" onclick="randomStyle()">🎲 <span data-i18n="random">Random</span></button>
+      <button class="btn pri" id="bSaveTheme" onclick="saveTheme()">💾 <span data-i18n="saveTheme">Simpan theme</span></button>
+    </div>
+
+    <div class="grid">
+
+      <!-- LEFT: Library sidebar (Urutan Baku: Frame -> Font -> Sticker -> Theme) -->
+      <aside class="col" id="colLeft">
+        <div class="chead">
+          <span class="t" data-i18n="library">Library</span>
+          <span class="tslabel" data-i18n="thumbSize">Thumbnail Size</span>
+          <div class="thumb-sizes">
+            <button class="btn sm ico" id="bThumbSmall" onclick="setThumbSize('small')"
+                    data-i18n-title="thumbSmall" title="Kecil">
+              <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><rect x="3.5" y="3.5" width="5" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+            </button>
+            <button class="btn sm ico on" id="bThumbNorm" onclick="setThumbSize('normal')"
+                    data-i18n-title="thumbNormal" title="Normal">
+              <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><rect x="1.5" y="1.5" width="9" height="9" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div id="libraryScroll">
+          
+          <!-- 1. FRAME ACCORDION (Wajib Teratas) -->
+          <div class="acc on" id="accFrame">
+            <button class="acc-h" onclick="toggleLibAcc('accFrame')">
+              <span data-i18n="frames">Frame</span>
+              <span class="chev">▾</span>
+            </button>
+            <div class="acc-b">
+              <div class="lib-actions">
+                <button class="btn sm" onclick="importFrame()">＋ <span data-i18n="import">Import</span></button>
+              </div>
+              <div id="frameGrid" class="cards thumb-norm"></div>
+            </div>
+          </div>
+
+          <!-- 2. FONT ACCORDION -->
+          <div class="acc" id="accFont">
+            <button class="acc-h" onclick="toggleLibAcc('accFont')">
+              <span data-i18n="secFont">Font</span>
+              <span class="chev">▾</span>
+            </button>
+            <div class="acc-b">
+              <div class="lib-actions">
+                <button class="btn sm" onclick="importFont()">＋ <span data-i18n="import">Import</span></button>
+                <button class="btn sm" onclick="openFontsFolder()" data-i18n-title="openFolder" title="Buka folder">📁</button>
+                <button class="btn sm" onclick="loadFonts(true)" data-i18n-title="refresh" title="Refresh">↻</button>
+              </div>
+              <div class="hint" id="fontCount" style="margin-bottom:4px"></div>
+              <div id="fontList" class="flist"></div>
+            </div>
+          </div>
+
+          <!-- 3. STICKER ACCORDION -->
+          <div class="acc" id="accSticker">
+            <button class="acc-h" onclick="toggleLibAcc('accSticker')">
+              <span data-i18n="secPng">Sticker</span>
+              <span class="chev">▾</span>
+            </button>
+            <div class="acc-b">
+              <div class="lib-actions">
+                <button class="btn sm" onclick="importOverlay()">＋ <span data-i18n="import">Import</span></button>
+              </div>
+              <div class="hint" id="overlayStatus" style="margin-bottom:4px"></div>
+              <div id="overlayGrid" class="cards thumb-norm"></div>
+            </div>
+          </div>
+
+          <!-- 4. THEME ACCORDION (Wajib Terbawah).
+               TIDAK ADA tombol "Simpan Theme" di sini: tombol itu sudah ada di bar atas
+               (#bSaveTheme). Dua tombol dengan nama sama di satu halaman adalah bug yang
+               user tunjuk sendiri (bug.txt P4.18). -->
+          <div class="acc on" id="accTheme">
+            <button class="acc-h" onclick="toggleLibAcc('accTheme')">
+              <span data-i18n="themes">Theme</span>
+              <span class="chev">▾</span>
+            </button>
+            <div class="acc-b">
+              <div id="themeGrid" class="cards thumb-norm"></div>
+            </div>
+          </div>
+
+        </div>
+      </aside>
+
+      <!-- RESIZER DIVIDER -->
+      <div class="resizer" id="resizerLeft" data-i18n-title="resizeLib" title="Tarik untuk ubah lebar library"></div>
+
+      <!-- MIDDLE: toolbar + preview -->
+      <main class="col mid">
+        <div class="mbar">
+          <div class="seg" id="viewSeg">
+            <button id="tabAdj" class="on" onclick="setView('adjust')" data-i18n="adjustment">Adjustment</button>
+            <button id="tabOut" onclick="setView('output')" data-i18n="output">Output</button>
+          </div>
+          <div class="mid" id="viewLabel" data-i18n="inputAdjustment">Input Adjustment</div>
+          <div class="zoom">
+            <button class="zb" onclick="zoomStep(-1)">−</button>
+            <input id="zoomRange" type="range" min="40" max="250" step="5" value="100" oninput="setZoom(this.value)">
+            <button class="zb" onclick="zoomStep(1)">+</button>
+            <span class="v" id="zoomVal">100%</span>
+            <button class="zb" onclick="setZoom(100)" data-i18n-title="reset" title="Reset">⟲</button>
+          </div>
+        </div>
+        <div class="vp" id="previewViewport">
+          <div id="stage">
+            <div class="rc adjust" id="rcA">
+              <div class="safe on"></div><div class="cropwin"></div>
+              <div class="vid">VIDEO</div>
+              <img class="tlayer sublayer" alt=""><img class="tlayer wmlayer" alt=""><img class="tlayer headlayer" alt="">
+              <div class="ic empty"></div>
+            </div>
+            <div class="rc output" id="rcB" style="display:none">
+              <div class="safe"></div>
+              <div class="vid">VIDEO</div>
+              <img class="tlayer sublayer" alt=""><img class="tlayer wmlayer" alt=""><img class="tlayer headlayer" alt="">
+              <div class="ic empty"></div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- RIGHT: Style panel -->
+      <aside class="col" id="colRight">
+        <div class="chead">
+          <span class="t" data-i18n="style">Style</span>
+          <span class="sw on" id="safeSw" onclick="toggleSafe()"></span>
+          <span class="hint" data-i18n="safeArea">Safe area</span>
+        </div>
+        <div class="scroll" id="inspector"></div>
+      </aside>
+
+    </div>
+  </div>
+  <div id="toast" class="toast"></div>
+<script>
+/* ============ i18n ============ */
+const I18N={
+ id:{random:"Random",saveTheme:"Simpan theme",
+  saving:"Menyimpan draf...",saved:"Draf tersimpan · simpan sebagai Theme untuk dipakai tab Run",
+  library:"Library",frames:"Frame",themes:"Theme",style:"Style",safeArea:"Safe area",
+  adjustment:"Adjustment",output:"Output",
+  inputAdjustment:"Input Adjustment",output916:"Output",
+  secCanvas:"Canvas",secVideo:"Video",secSub:"Subtitle",secHead:"Headline",secWm:"Creator",
+  secPng:"Sticker",secFont:"Font",secExport:"Export Option",
+  ratio:"Rasio",sourceRatio:"Rasio sumber",scale:"Skala",ypos:"Posisi Y",xpos:"Posisi X",
+  xoff:"Geser X",radius:"Sudut",
+  center:"Tengah",reset:"Reset",font:"Font",size:"Ukuran",outline:"Outline",outlineColor:"Warna outline",
+  opacity:"Transparansi",scaleHint:"0% = video utuh (tidak terpotong) · 300% = penuhi kanvas",
+  shadow:"Shadow",color:"Warna",animation:"Animasi",wordsPerLine:"Kata per baris",text:"Teks",
+  outer:"Outer",inner:"Inner",off:"Off",strokeOff:"Tanpa stroke",
+  auto:"Auto",custom:"Kustom",srtDefault:"Ikut SRT",word:"kata",
+  wpl1:"1 kata — SUBTITLE",wpl3:"3 kata — SUBTITLE SUBTITLE SUBTITLE",
+  wpl5:"5 kata — SUBTITLE ×5",
+  wplHint:"Contoh di preview memakai jumlah kata ini. Ketik teks sendiri di kotak Teks untuk menggantinya.",
+  upload:"Import",removePng:"Hapus PNG",importFont:"Import",openFolder:"Buka folder",
+  import:"Import",thumbSize:"Thumbnail Size",thumbSmall:"Kecil",thumbNormal:"Normal",
+  resizeLib:"Tarik untuk ubah lebar Library",trash:"Hapus",
+  refresh:"Refresh",quality:"Kualitas video",qualityHint:"Angka kecil = lebih tajam (file lebih besar)",
+  speed:"Kecepatan encode",
+  noFrame:"Belum ada frame. Klik ＋ untuk impor PNG.",
+  noTheme:"Belum ada theme. Atur gaya lalu klik ＋.",
+  themeName:"Nama theme:",themeSaved:"Theme disimpan: ",themeLoaded:"Theme dipakai: ",
+  themeDeleted:"Theme dihapus: ",frameDeleted:"Frame dihapus: ",fontDeleted:"Font dihapus: ",
+  askDelFrame:"Hapus frame ini dari library?",askDelTheme:"Hapus theme ini?",askDelFont:"Hapus font ini?",
+  askOverwrite:"Nama \"%s\" sudah dipakai. Timpa theme itu?\n\nBatal = ganti nama.",
+  guiOnly:"Hanya tersedia di dalam Clipper GUI",lineGap:"Jarak baris",
+  noPng:"Belum ada stiker/PNG",pngMissing:"File PNG overlay tidak ditemukan, dimatikan",
+  maxLines:"Maks baris",autoFit:"Dikecilkan otomatis jadi",shadowX:"Geser X",shadowY:"Geser Y",
+  align:"Perataan",alignLeft:"Kiri",alignCenter:"Tengah",alignRight:"Kanan",nudgeX:"Geser X halus",
+  activeColor:"Warna kata aktif",
+  wmAutoOn:"Otomatis: hasil render pakai \"%s\" (nama kreator video).",
+  wmAutoOff:"Teks tetap. Tulis \"Creator!\" untuk ikut nama kreator.",
+  shadowBlur:"Blur",shadowColor:"Warna bayangan",layerOrder:"Urutan lapisan",
+  blurBg:"Blur background",blurRadius:"Tingkat blur",
+  secIntro:"Intro Cover",introDur:"Durasi",introFade:"Fade out",
+  introBg:"Gambar cover",introNoBg:"Belum ada gambar",introHead:"Tampilkan headline",
+  introWm:"Tampilkan nama creator",
+  orderStrokeFill:"Outline di bawah",orderFillStroke:"Outline di atas",
+  shadowSameWarn:"Warna bayangan sama dgn outline — efek 3D tidak terlihat. Pakai warna beda.",
+  fontCount:" font",builtin:"bawaan",none:"Tidak ada",pop:"Pop",fade:"Fade",up:"Naik",
+  wordAnim:"Per kata",karaoke:"Karaoke",failed:"Gagal: ",randomized:"Gaya diacak"},
+ en:{random:"Random",saveTheme:"Save theme",
+  saving:"Saving draft...",saved:"Draft saved · save as a Theme to use it in the Run tab",
+  library:"Library",frames:"Frames",themes:"Themes",style:"Style",safeArea:"Safe area",
+  adjustment:"Adjustment",output:"Output",
+  inputAdjustment:"Input Adjustment",output916:"Output",
+  secCanvas:"Canvas",secVideo:"Video",secSub:"Subtitle",secHead:"Headline",secWm:"Creator",
+  secPng:"Sticker",secFont:"Fonts",secExport:"Export Option",
+  ratio:"Ratio",sourceRatio:"Source ratio",scale:"Scale",ypos:"Y position",xpos:"X position",
+  xoff:"X offset",radius:"Radius",
+  center:"Center",reset:"Reset",font:"Font",size:"Size",outline:"Outline",outlineColor:"Outline color",
+  opacity:"Opacity",scaleHint:"0% = whole video (nothing cropped) · 300% = fill the canvas",
+  shadow:"Shadow",color:"Color",animation:"Animation",wordsPerLine:"Words per line",text:"Text",
+  outer:"Outer",inner:"Inner",off:"Off",strokeOff:"No stroke",
+  auto:"Auto",custom:"Custom",srtDefault:"Follow SRT",word:"words",
+  wpl1:"1 word — SUBTITLE",wpl3:"3 words — SUBTITLE SUBTITLE SUBTITLE",
+  wpl5:"5 words — SUBTITLE ×5",
+  wplHint:"The preview sample uses this word count. Type your own text in the Text box to replace it.",
+  upload:"Import",removePng:"Remove PNG",importFont:"Import",openFolder:"Open folder",
+  import:"Import",thumbSize:"Thumbnail Size",thumbSmall:"Small",thumbNormal:"Normal",
+  resizeLib:"Drag to resize the Library panel",trash:"Delete",
+  refresh:"Refresh",quality:"Video quality",qualityHint:"Lower number = sharper (bigger file)",
+  speed:"Encode speed",
+  noFrame:"No frames yet. Click ＋ to import a PNG.",
+  noTheme:"No themes yet. Style it, then click ＋.",
+  themeName:"Theme name:",themeSaved:"Theme saved: ",themeLoaded:"Theme applied: ",
+  themeDeleted:"Theme deleted: ",frameDeleted:"Frame deleted: ",fontDeleted:"Font deleted: ",
+  askDelFrame:"Delete this frame from the library?",askDelTheme:"Delete this theme?",askDelFont:"Delete this font?",
+  askOverwrite:"The name \"%s\" is taken. Overwrite that theme?\n\nCancel = rename.",
+  guiOnly:"Only available inside the Clipper GUI",lineGap:"Line gap",
+  noPng:"No sticker/PNG yet",pngMissing:"Overlay PNG file not found, disabled",
+  maxLines:"Max lines",autoFit:"Auto-shrunk to",shadowX:"Offset X",shadowY:"Offset Y",
+  align:"Align",alignLeft:"Left",alignCenter:"Center",alignRight:"Right",nudgeX:"Nudge X",
+  activeColor:"Active word colour",
+  wmAutoOn:"Automatic: the render will use \"%s\" (the video's creator name).",
+  wmAutoOff:"Fixed text. Type \"Creator!\" to follow the creator name.",
+  shadowBlur:"Blur",shadowColor:"Shadow color",layerOrder:"Layer order",
+  blurBg:"Blur background",blurRadius:"Blur amount",
+  secIntro:"Intro Cover",introDur:"Duration",introFade:"Fade out",
+  introBg:"Cover image",introNoBg:"No image yet",introHead:"Show headline",
+  introWm:"Show creator name",
+  orderStrokeFill:"Outline below",orderFillStroke:"Outline above",
+  shadowSameWarn:"Shadow colour matches the outline — no 3D depth. Use a different colour.",
+  fontCount:" fonts",builtin:"built-in",none:"None",pop:"Pop",fade:"Fade",up:"Slide up",
+  wordAnim:"Word by word",karaoke:"Karaoke",failed:"Failed: ",randomized:"Style randomized"}
+};
+let LANG="id";
+function L(k){return (I18N[LANG]||I18N.id)[k]||(I18N.id[k]||k)}
+/* Terjemahan menyentuh TIGA tempat: textContent (`data-i18n`), placeholder
+   (`data-i18n-ph`), dan atribut title/tooltip (`data-i18n-title`). Tooltip yang
+   ketinggalan adalah bagian dari keluhan "EN/ID cuma mengubah sebagian teks". */
+function applyI18n(){
+ document.querySelectorAll('[data-i18n]').forEach(e=>{e.textContent=L(e.getAttribute('data-i18n'))});
+ document.querySelectorAll('[data-i18n-ph]').forEach(e=>{e.placeholder=L(e.getAttribute('data-i18n-ph'))});
+ document.querySelectorAll('[data-i18n-title]').forEach(e=>{e.title=L(e.getAttribute('data-i18n-title'))});
+ buildInspector(); renderFrames(); renderThemes(); renderFontList(); renderOverlayList();
+ updateViewLabel();
+}
+function applyLangFromHost(l){LANG=(l==='en')?'en':'id';applyI18n()}
+function setLang(l){applyLangFromHost(l);
+ if(B&&B.set_language)B.set_language(LANG,function(){});}
+
+/* ============ helpers ============ */
+const $=id=>document.getElementById(id);
+let B=null; // bridge
+function toast(msg){const e=$('toast');e.textContent=msg;e.classList.add('on');
+ clearTimeout(window.__t);window.__t=setTimeout(()=>e.classList.remove('on'),2000)}
+function num(v,d){const n=parseFloat(v);return isNaN(n)?d:n}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function hex(c){c=(c||'').trim();if(!c)return '#FFFFFF';
+ if(c[0]==='#')return (c.length===4?('#'+c[1]+c[1]+c[2]+c[2]+c[3]+c[3]):c).toUpperCase();
+ const m=c.match(/rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/i);
+ return m?('#'+[1,2,3].map(i=>(+m[i]).toString(16).padStart(2,'0')).join('').toUpperCase()):'#FFFFFF'}
+function hsl2hex(h,s,l){s/=100;l/=100;
+ const k=n=>(n+h/30)%12,a=s*Math.min(l,1-l),f=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));
+ return '#'+[f(0),f(8),f(4)].map(x=>Math.round(255*x).toString(16).padStart(2,'0')).join('').toUpperCase()}
+function hex2hsl(H){const h=hex(H);const r=parseInt(h.slice(1,3),16)/255,g=parseInt(h.slice(3,5),16)/255,b=parseInt(h.slice(5,7),16)/255;
+ const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;let hu=0;
+ if(d){if(mx===r)hu=((g-b)/d)%6;else if(mx===g)hu=(b-r)/d+2;else hu=(r-g)/d+4;hu*=60;if(hu<0)hu+=360}
+ const l=(mx+mn)/2,s=d?d/(1-Math.abs(2*l-1)):0;
+ return{h:Math.round(hu),s:Math.round(s*100),l:Math.round(l*100)}}
+function lum(H){const h=hex(H);const c=[1,3,5].map(i=>parseInt(h.substr(i,2),16)/255);
+ return .2126*c[0]+.7152*c[1]+.0722*c[2]}
+function autoStroke(fill){return lum(fill)>.6?'#000000':'#FFFFFF'}
+
+/* ============ STATE ============ */
+const PAL=['#FFFFFF','#FACC15','#72E8FF','#FF6B6B','#0B1220']; // 5 warna dasar
+const RC_MAX_W=250, RC_MAX_H=444;   // kotak preview maksimum (px)
+let CW=1080, CH=1920;               // canvas render
+let SX=1,SY=1;                      // preview px -> canvas px
+let RCW=250,RCH=444;
+
+const S={                            // state UI (mirror preset)
+ canvasId:'9x16',
+ frame:'',
+ video:{scale:1.0,x:0,y:415,radius:0,aspect:'16/9',blurOn:false,blur:40},
+ sub:{font:'subtitle.ttf',size:95,y:1686,outline:2,outlineMode:'outer',outlineColor:'',
+      shadowOn:true,shadowX:3,shadowY:3,shadowColor:'#000000',shadowBlur:0,
+      layerOrder:'shadow-stroke-fill',align:'center',maxLines:2,lineSpacing:-0.15,
+      color:'#FFFFFF',active:'#FFA500',anim:'none',
+      // Kerapatan subtitle dibakukan di theme: 1 / 3 / 5 kata. Teks contoh dibuat
+      // sebanyak itu supaya kerapatannya kelihatan langsung di preview.
+      wpl:3,autoText:true,text:'SUBTITLE SUBTITLE SUBTITLE'},
+ head:{on:true,text:'HEADLINE',font:'title.ttf',size:69,x:45,y:69,lineSpacing:-0.25,maxLines:2,align:'center',
+       outline:6,outlineMode:'outer',outlineColor:'',
+       shadowOn:true,shadowX:8,shadowY:8,shadowColor:'#000000',shadowBlur:0,
+       layerOrder:'shadow-stroke-fill',color:'#FFFFFF'},
+ wm:{on:true,text:'Creator!',font:'title.ttf',size:130,x:751,y:225,align:'center',outline:7,outlineMode:'outer',outlineColor:'',
+     shadowOn:true,shadowX:6,shadowY:6,shadowColor:'#000000',shadowBlur:0,
+     layerOrder:'shadow-stroke-fill',color:'#D94B0A'},
+ png:{on:false,name:'',path:'',x:69,y:363,w:276,opacity:1,
+    shadowOn:false,shadowX:0,shadowY:0,shadowBlur:0,shadowColor:'#000000',layer_order:'shadow-stroke-fill'},
+ // Intro Cover (item 12). Lapisan penutup di detik-detik awal video untuk thumbnail
+ // feed TikTok/Shorts. Video & audio utama tetap jalan dari detik 0 di latar.
+ intro:{on:false,dur:0.4,fade:0.15,bg:'',bgUrl:'',head:true,wm:true},
+ exp:{crf:18,preset:'medium'},
+ view:'adjust',safe:true,zoom:100,openAcc:'video'
+};
+let _frames=[],_fonts=[],_themes=[],_canvases=[],_activeTheme='';
+/* Kotak tinta tiap lapisan teks (dari mesin render, lewat bridge). Dipakai slider
+   zero-center: "tengah" hanya bisa dihitung kalau tinggi blok teks SETELAH auto-fit
+   diketahui, dan angka itu hanya ada di sisi Python. */
+let _ink={};
+/* `_booting` true selama halaman memuat preset aktif dari disk. Tanpa penjaga ini
+   auto-apply akan langsung menulis balik preset yang baru saja dibaca (dan menimpa
+   field yang belum sempat diterapkan ke state UI). */
+let _booting=true;
+
+/* ============ CANVAS SIZE ============ */
+function computeRC(){
+ const r=CW/CH;
+ if(r>=RC_MAX_W/RC_MAX_H){RCW=RC_MAX_W;RCH=Math.round(RC_MAX_W/r)}
+ else{RCH=RC_MAX_H;RCW=Math.round(RC_MAX_H*r)}
+ SX=CW/RCW; SY=CH/RCH;
+ document.documentElement.style.setProperty('--rcw',RCW+'px');
+ document.documentElement.style.setProperty('--rch',RCH+'px');
+}
+function setCanvasSize(id){
+ const c=_canvases.find(x=>x.id===id); if(!c)return;
+ const ow=CW,oh=CH; CW=c.w; CH=c.h; S.canvasId=id;
+ const sx=CW/ow, sy=CH/oh, ss=Math.min(sx,sy), R=Math.round;
+ // skalakan semua koordinat supaya tidak keluar frame saat rasio berubah
+ S.video.y=R(S.video.y*sy); S.video.x=R((+S.video.x||0)*sx);
+ S.video.radius=R(S.video.radius*ss);
+ ['sub','head','wm'].forEach(k=>{const b=S[k];
+  if('x' in b)b.x=R(b.x*sx); if('y' in b)b.y=R(b.y*sy);
+  b.size=R(b.size*ss); b.outline=R(b.outline*ss);
+  // shadow adalah offset x/y terpisah (bukan lagi satu angka). Dulu baris ini
+  // menulis b.shadow=NaN untuk head/wm yang tidak punya field itu.
+  if('shadowX' in b)b.shadowX=R(b.shadowX*ss);
+  if('shadowY' in b)b.shadowY=R(b.shadowY*ss);
+  if('shadowBlur' in b)b.shadowBlur=R(b.shadowBlur*ss)});
+ S.png.x=R(S.png.x*sx); S.png.y=R(S.png.y*sy); S.png.w=R(S.png.w*ss);
+ computeRC(); syncAll(); buildInspector();
+}
+
+function V(k,v){document.documentElement.style.setProperty(k,v)}
+/* CATATAN: helper CSS untuk teks (cssFam / shadowCss / strokeCss) sudah DIBUANG.
+   Tidak ada lagi teks yang digambar CSS di preview — subtitle, headline, dan
+   watermark semuanya lapisan PNG dari stages/text_engine.py. Membiarkan helper itu
+   hidup berarti mengundang orang menggambar teks dengan mesin kedua lagi. */
+
+/* Geometri video efektif. Sejak 2026-08-30 preview TIDAK lagi meniru
+   cover_frame_window(): pemaksaan itu dibuang dari renderer juga, karena ia menimpa
+   nilai skala pilihan user (bug yang dilaporkan user: slider terasa tidak berpengaruh).
+   Latar tetap tidak bocor hitam karena base kanvas = video yang di-cover penuh. */
+function effGeom(){
+ const v=S.video;
+ let r=16/9; try{const p=String(v.aspect).split('/');r=(+p[0])/(+p[1])}catch(e){}
+ const w=Math.round(CW*v.scale);
+ return {w:w,h:Math.round(w/r),y:Math.round(v.y),x:Math.round(+v.x||0)};
+}
+
+/* ====== SKALA VIDEO: 0% = utuh (tanpa terpotong), 300% = penuh kanvas ======
+   Preset tetap menyimpan `video.scale` ABSOLUT (fraksi lebar kanvas) supaya renderer
+   tidak perlu tahu apa pun soal slider — itu yang menjamin preview == render. Slider
+   hanya lapisan tampilan di atas nilai itu.
+     z=0   -> scale 1.0  : lebar video = lebar kanvas, seluruh frame video terlihat
+     z=300 -> scale cover: tinggi video = tinggi kanvas, kanvas terisi penuh */
+function coverScale(){
+ let r=16/9; try{const p=String(S.video.aspect).split('/');r=(+p[0])/(+p[1])}catch(e){}
+ return Math.max(1.0001,(CH*r)/CW);
+}
+function zoomToScale(z){const c=coverScale();
+ return 1+(c-1)*(Math.max(0,Math.min(300,+z||0))/300)}
+function scaleToZoom(s){const c=coverScale();
+ return Math.round(Math.max(0,Math.min(300,((+s||1)-1)/(c-1)*300)))}
+function setVideoZoom(el){
+ const z=num(el&&el.value!==undefined?el.value:el,0);
+ S.video.scale=+zoomToScale(z).toFixed(4);
+ const box=el&&el.closest?el.closest('.ctl'):null;
+ const n=box?box.querySelector('.num'):null;
+ if(n)n.textContent=Math.round(z)+'%';
+ syncAll()}
+
+function syncAll(){
+ const v=S.video;
+ const g=effGeom();
+ V('--vw',Math.round(g.w/SX)+'px');
+ V('--vy',Math.round(g.y/SY)+'px');
+ V('--vx',Math.round((g.x||0)/SX)+'px');
+ V('--vr',Math.round(v.radius/SX)+'px');
+ V('--vratio',v.aspect);
+ /* Blur background: kelasnya di kotak preview (.rc), bukan di .vid — lapisan blur
+    adalah LATAR di belakang video, sama seperti di renderer. Radius diskalakan
+    canvas px -> preview px lewat SX supaya kuatnya sama dengan hasil render. */
+ V('--blurpx',(Math.max(0,+v.blur||0)/SX).toFixed(2)+'px');
+ document.querySelectorAll('.rc').forEach(e=>e.classList.toggle('blur-bg',!!v.blurOn));
+ V('--icx',Math.round(S.png.x/SX)+'px');
+ V('--icy',Math.round(S.png.y/SY)+'px');
+ V('--icsize',Math.round(S.png.w/SX)+'px');
+ V('--icop',(+S.png.opacity).toFixed(3));
+ document.querySelectorAll('.rc .ic').forEach(e=>e.classList.toggle('empty',!S.png.on));
+ requestTextLayers();
+ // Tombol "Terapkan" sudah dibuang: preset aktif ditulis otomatis (debounce) supaya
+ // tab Run selalu memakai gaya yang sedang dilihat user. `_booting` mencegah
+ // penulisan balik saat preset baru saja DIMUAT dari disk.
+ if(!_booting)scheduleAutoApply();
+}
+
+/* ====== AUTOSAVE DRAF PRESET (debounce 600ms) ======
+   Fungsi ini pernah HILANG dari mockup (dibuang tanpa sengaja saat perombakan UI).
+   Akibatnya `syncAll()` melempar ReferenceError di baris terakhirnya, sehingga SEMUA
+   kode yang dipanggil sesudah syncAll() di dalam handler yang sama tidak pernah jalan —
+   `buildInspector()` di toggleB/setColor/setAlign tidak dieksekusi, jadi sakelar ON/OFF
+   dan tombol pilihan tampak "tidak merespons" walau state-nya sudah berubah. Satu
+   fungsi hilang = beberapa laporan bug sekaligus.
+
+   ATURAN: autosave TIDAK boleh memicu efek tingkat aplikasi (mis. pindah tab). Ia
+   dijalankan puluhan kali per menit saat slider digeser. */
+let _apTimer=null;
+function scheduleAutoApply(){
+ if(!(B&&B.save_preset))return;
+ const st=$('applyState'); if(st)st.textContent=L('saving');
+ if(_apTimer)clearTimeout(_apTimer);
+ _apTimer=setTimeout(()=>{
+  _apTimer=null;
+  try{B.save_preset(JSON.stringify(buildPreset()))}
+  catch(e){if(st)st.textContent=L('failed')+e;return}
+  if(st)st.textContent=L('saved');
+ },600);
+}
+
+/* ====== LAPISAN TEKS: digambar stages/text_engine.py (mesin yang sama dgn render) ======
+   Preview TIDAK menggambar teks apa pun dengan CSS — subtitle, headline, dan watermark
+   semuanya PNG dari mesin render. Alasannya: CSS dan mesin render tidak pernah bisa
+   sama (CSS tak punya auto-fit, urutan lapisan lewat paint-order, pengukur lebar teks
+   beda, dan libass menskalakan outline relatif PlayRes).
+   Permintaan di-debounce supaya menggeser slider tidak membanjiri bridge. */
+let _tlTimer=null, _tlPending=false, _tlBusy=false, _tlLast='';
+function requestTextLayers(){
+ if(!(B&&B.render_text_layers))return;
+ if(_tlTimer)clearTimeout(_tlTimer);
+ _tlTimer=setTimeout(doTextLayers,60);
+}
+/* Jumlah lapisan subtitle yang perlu digambar: mode per-kata butuh satu lapisan
+   per kata aktif supaya animasinya bisa diputar seperti di MP4. */
+function subFrameCount(){
+ const a=S.sub.anim;
+ if(a!=='word'&&a!=='karaoke')return 1;
+ let w=String(S.sub.text||'').trim().split(/\s+/).filter(Boolean);
+ const wpl=S.sub.wpl|0; if(wpl>0)w=w.slice(0,wpl);
+ return Math.max(1,w.length);
+}
+// Nama creator untuk contoh watermark. Kotak watermark memuat PENANDA (mis. "Creator!")
+// yang saat render diganti nama creator video yang diproses. Preview menggantinya dengan
+// creator video yang SEDANG DIPILIH di panel Review, jadi preview == hasil.
+// Daftar penanda ini WAJIB sama dengan AUTO_WATERMARK_TOKENS di stages/stage5_final.py —
+// kalau berbeda, preview dan render akan menampilkan teks yang berbeda.
+const WM_AUTO_TOKENS=['creator!','creator','nama creator','nama kreator',
+                      'kreator!','kreator','<creator>','{creator}'];
+let _creatorHint='';
+function loadCreatorHint(){
+ if(!B||!B.creator_hint)return;
+ B.creator_hint(v=>{_creatorHint=String(v||''); refreshWmPlaceholder(); requestTextLayers();});
+ // Ikuti perubahan: user memilih video lain di Review -> contoh watermark ikut berubah.
+ // Tanpa ini preview tetap memperlihatkan nama channel sebelumnya (bug 2026-08-30).
+ if(B.creator_hint_changed&&B.creator_hint_changed.connect)
+  B.creator_hint_changed.connect(v=>{
+   _creatorHint=String(v||''); refreshWmPlaceholder(); requestTextLayers();});
+}
+/* Nama creator dari host. Dulu ada teks keterangan di bawah kotak teks watermark;
+   kotak teks + keterangan itu sudah dibuang di panel Style (item 22), jadi yang
+   tersisa hanyalah menggambar ulang lapisan teks supaya preview memakai nama kreator
+   video yang sedang dipilih di panel Review. */
+function refreshWmPlaceholder(){/* tidak ada lagi elemen keterangan di panel Style */}
+function wmIsAuto(){
+ return WM_AUTO_TOKENS.indexOf(String(S.wm.text||'').trim().toLowerCase())>=0;
+}
+function wmEffectiveText(){
+ const t=String(S.wm.text||'').trim();
+ if(!t||wmIsAuto())return _creatorHint||'CREATOR';  // penanda -> nama creator video terpilih
+ return t;                                 // teks lain dipakai harfiah
+}
+function textLayerSpec(){
+ const p=buildPreset();
+ return JSON.stringify({canvas:{w:CW,h:CH},
+  blocks:{sub:Object.assign({},p.subtitle,{text:S.sub.text,enabled:true,
+           _frames:subFrameCount()}),
+          wm:Object.assign({},p.watermark,{text:wmEffectiveText()}),
+          head:Object.assign({},p.headline,{text:S.head.text})}});
+}
+function doTextLayers(){
+ const spec=textLayerSpec();
+ if(spec===_tlLast&&!_tlPending)return;
+ if(_tlBusy){_tlPending=true;return}
+ _tlBusy=true; _tlLast=spec;
+ B.render_text_layers(spec,js=>{
+  _tlBusy=false;
+  let d={};try{d=JSON.parse(js)}catch(e){}
+  if(d.error){console.warn('text layer:',d.error)}
+  else{
+   applyTextLayer('headlayer',d.head);
+   applyTextLayer('wmlayer',d.wm);
+   applySubLayers(d.sub);
+   showFitInfo(d);
+   /* Simpan kotak tinta tiap blok: dipakai slider zero-center untuk tahu di mana
+      "tengah" sebenarnya (tinggi blok baru diketahui setelah auto-fit). */
+   ['head','wm','sub'].forEach(k=>{if(d[k]&&d[k].ink)_ink[k]=d[k].ink});
+  }
+  if(_tlPending){_tlPending=false;doTextLayers()}
+ });
+}
+function applyTextLayer(cls,info){
+ const url=(info&&info.url)||'';
+ document.querySelectorAll('.rc .'+cls).forEach(el=>{
+  if(url){if(el.getAttribute('src')!==url)el.setAttribute('src',url);el.style.display=''}
+  else{el.removeAttribute('src');el.style.display='none'}});
+}
+/* Putar deretan lapisan subtitle. Tiap lapisan adalah gambar yang BENAR-BENAR muncul
+   di MP4 pada momen itu, jadi ini bukan animasi hias — ia memperlihatkan kata aktif
+   dengan warna & ukuran hasil render. */
+let _subTimer=null;
+function applySubLayers(info){
+ if(_subTimer){clearInterval(_subTimer);_subTimer=null}
+ const urls=(info&&info.urls&&info.urls.length)?info.urls:((info&&info.url)?[info.url]:[]);
+ if(!urls.length){applyTextLayer('sublayer',null);return}
+ let i=0;
+ const show=()=>{document.querySelectorAll('.rc .sublayer').forEach(el=>{
+  if(el.getAttribute('src')!==urls[i])el.setAttribute('src',urls[i]);el.style.display=''});
+  i=(i+1)%urls.length};
+ show();
+ if(urls.length>1)_subTimer=setInterval(show,430);
+}
+/* Ukuran font hasil auto-fit. Keterangan `.hint` di panel Style sudah dibuang (item 22),
+   jadi tidak ada lagi elemen headFit/wmFit/subFit untuk diisi. Ukuran yang benar-benar
+   dipakai tetap terlihat langsung di lapisan teks preview (digambar mesin render yang
+   sama dengan MP4), jadi informasinya tidak hilang — hanya tidak lagi berupa teks. */
+function showFitInfo(d){/* tidak ada elemen keterangan auto-fit di panel Style */}
+
+/* ============ VIEW + ZOOM ============ */
+function setView(mode){S.view=mode;
+ $('rcA').style.display=mode==='adjust'?'':'none';
+ $('rcB').style.display=mode==='output'?'':'none';
+ $('tabAdj').classList.toggle('on',mode==='adjust');
+ $('tabOut').classList.toggle('on',mode==='output');
+ updateViewLabel();syncAll()}
+function updateViewLabel(){const e=$('viewLabel');if(!e)return;
+ const ratio=_canvases.find(c=>c.id===S.canvasId);
+ const rt=ratio?ratio.ratio:'';
+ e.textContent=S.view==='output'?(L('output916')+' '+rt):L('inputAdjustment');
+ e.classList.toggle('out',S.view==='output')}
+function setZoom(v){S.zoom=clamp(Math.round(num(v,100)),40,250);
+ V('--zoom',(S.zoom/100).toFixed(3));
+ const r=$('zoomRange');if(r)r.value=S.zoom;
+ const t=$('zoomVal');if(t)t.textContent=S.zoom+'%'}
+function zoomStep(d){setZoom(S.zoom+d*10)}
+function toggleSafe(){S.safe=!S.safe;$('safeSw').classList.toggle('on',S.safe);
+ document.querySelectorAll('.rc .safe').forEach(e=>e.classList.toggle('on',S.safe))}
+
+/* ============ INSPECTOR BUILDER ============ */
+function accOpen(id){S.openAcc=(S.openAcc===id)?'':id;buildInspector()}
+/* PENTING: handler inline dibungkus atribut ber-kutip GANDA, jadi setiap kutip ganda
+   di dalam string handler HARUS di-escape. Tanpa ini `oninput="setN("video.y",...)"`
+   terpotong oleh parser HTML menjadi `setN(` dan slider tidak berfungsi. */
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;')}
+function sec(id,icon,title,body,sw){
+ const on=S.openAcc===id;
+ return '<div class="acc'+(on?' on':'')+'">'+
+  '<button class="acc-h" onclick="accOpen(\''+id+'\')"><span>'+icon+' '+title+'</span>'+
+  '<span class="r">'+(sw||'')+'<span class="chev">▾</span></span></button>'+
+  '<div class="acc-b">'+body+'</div></div>'}
+function sw(on,fn){return '<span class="sw'+(on?' on':'')+'" onclick="event.stopPropagation();'+esc(fn)+'"></span>'}
+function slider(label,val,min,max,step,fn,unit){
+ return '<div class="ctl"><label>'+label+'</label><span class="num">'+val+(unit||'')+'</span>'+
+  '<input class="full" style="grid-column:1/-1" type="range" min="'+min+'" max="'+max+'" step="'+(step||1)+
+  '" value="'+val+'" oninput="'+esc(fn)+'"></div>'}
+function selectBox(label,opts,cur,fn){
+ return '<div class="ctl full">'+(label?'<label>'+label+'</label>':'')+'<select class="inp" onchange="'+esc(fn)+'">'+
+  opts.map(o=>'<option value="'+esc(o[0])+'"'+(String(o[0])===String(cur)?' selected':'')+'>'+o[1]+'</option>').join('')+
+  '</select></div>'}
+function textBox(label,val,fn,ph,id){
+ return '<div class="ctl full"><label>'+label+'</label><input class="inp"'+
+  (id?' id="'+esc(id)+'"':'')+' value="'+esc(val)+'"'+
+  (ph?' placeholder="'+esc(ph)+'"':'')+' oninput="'+esc(fn)+'"></div>'}
+
+/* colour block: 5 palette + native picker (Hue & Lightness slider DIBUANG — bug.txt item 22) */
+function colorBlock(key,field,val){
+ const dots=PAL.map(c=>'<span class="dot'+(hex(c)===hex(val)?' on':'')+'" style="background:'+c+
+  '" onclick="setColor(\''+key+'\',\''+field+'\',\''+c+'\')"></span>').join('');
+ return '<div class="cp">'+
+  '<div class="sw5">'+dots+
+   '<input class="native" type="color" value="'+hex(val)+'" oninput="setColor(\''+key+'\',\''+field+'\',this.value)">'+
+   '<span class="cval">'+hex(val)+'</span></div>'+
+  '</div>'}
+
+/* warna heksadesimal sternary: pastikan format #RRGGBB */
+function hex(c){
+ const s=String(c||'').trim();
+ if(!s)return '#000000';
+ if(s[0]!=='#')return s;
+ if(s.length===4)return '#'+s[1]+s[1]+s[2]+s[2]+s[3]+s[3];
+ return s.length>=7?s:'#000000';
+}
+/* warna stroke otomatis: hitam kalau warna terang, putih kalau gelap */
+function autoStroke(hexColor){
+ const c=hex(hexColor);
+ if(c.length<7)return '#000000';
+ const r=parseInt(c.slice(1,3),16),g=parseInt(c.slice(3,5),16),b=parseInt(c.slice(5,7),16);
+ const lum=(r*0.299+g*0.587+b*0.114)/255;
+ return lum>0.6?'#000000':'#FFFFFF';
+}
+function setColor(key,field,v){S[key][field]=hex(v);syncAll();buildInspector()}
+/* setHue()/setLite() DIBUANG bersama slider Hue & Lightness (item 22) — tidak ada
+   pemanggil lagi. */
+
+/* outline color: auto | custom */
+/* Perataan teks: kiri / tengah / kanan — ditampilkan sebagai IKON saja (bug.txt P4.14).
+   Zona sama dengan yang dipakai auto-fit (margin 7% kiri-kanan), jadi "kiri" berarti
+   menempel margin kiri, bukan tepi kanvas. Slider Geser X tetap bekerja sebagai
+   geseran halus dari posisi hasil perataan.
+   Nama pilihan tetap ada di `title`/aria-label supaya tetap terbaca screen reader
+   dan tetap ikut sakelar bahasa. */
+const ALIGN_ICON={
+ left:'<svg width="14" height="12" viewBox="0 0 14 12" aria-hidden="true">'+
+      '<g fill="currentColor"><rect x="1" y="1" width="12" height="1.6" rx=".8"/>'+
+      '<rect x="1" y="5.2" width="7" height="1.6" rx=".8"/>'+
+      '<rect x="1" y="9.4" width="10" height="1.6" rx=".8"/></g></svg>',
+ center:'<svg width="14" height="12" viewBox="0 0 14 12" aria-hidden="true">'+
+      '<g fill="currentColor"><rect x="1" y="1" width="12" height="1.6" rx=".8"/>'+
+      '<rect x="3.5" y="5.2" width="7" height="1.6" rx=".8"/>'+
+      '<rect x="2" y="9.4" width="10" height="1.6" rx=".8"/></g></svg>',
+ right:'<svg width="14" height="12" viewBox="0 0 14 12" aria-hidden="true">'+
+      '<g fill="currentColor"><rect x="1" y="1" width="12" height="1.6" rx=".8"/>'+
+      '<rect x="6" y="5.2" width="7" height="1.6" rx=".8"/>'+
+      '<rect x="3" y="9.4" width="10" height="1.6" rx=".8"/></g></svg>'
+};
+function alignBlock(key){
+ const b=S[key], cur=b.align||'center';
+ const lbl={left:L('alignLeft'),center:L('alignCenter'),right:L('alignRight')};
+ const btn=v=>'<button class="btn sm'+(cur===v?' pri':'')+
+  '" data-i18n-title="align'+v.charAt(0).toUpperCase()+v.slice(1)+'"'+
+  ' title="'+esc(lbl[v])+'" aria-label="'+esc(lbl[v])+'"'+
+  ' onclick="setAlign(\''+key+'\',\''+v+'\')">'+ALIGN_ICON[v]+'</button>';
+ return '<div class="ctl full">'+
+  '<div class="row">'+btn('left')+btn('center')+btn('right')+'</div></div>'}
+function setAlign(k,v){S[k].align=v;syncAll();buildInspector()}
+
+/* ====== ZERO-CENTER SLIDER X & Y (bug.txt P2.10) ======
+   Aturan yang diminta user: titik TENGAH slider = posisi NETRAL (Center) di kanvas,
+   seragam untuk Video, Headline, Subtitle, Creator, dan Sticker.
+
+   Cara kerjanya: preset TETAP menyimpan koordinat ABSOLUT (renderer tidak perlu tahu
+   apa pun soal slider — itu yang menjaga preview == render). Slider hanya menampilkan
+   SELISIH terhadap posisi tengah. Karena itu tengah harus dihitung, dan untuk teks
+   tingginya baru diketahui SETELAH auto-fit memilih ukuran font — angkanya datang dari
+   `_ink` (kotak tinta yang dilaporkan mesin render), bukan ditebak di JS.
+
+   Kenapa selisih, bukan menyimpan offset di preset: kalau UI menulis offset dan
+   renderer menambahkan tengah sendiri, setiap perubahan ukuran font akan MENGGESER
+   teks yang sudah pas. Dengan model selisih, `y` absolut tetap diam; yang berubah
+   hanya angka yang ditampilkan. */
+function inkOf(key){return _ink[key]||null}
+function pngAspect(){
+ // Tinggi stiker = lebar × rasio gambar asli. Diambil dari <img> yang sudah dimuat;
+ // kalau belum ada gambar, anggap 1:1 (tidak ada info lain yang jujur).
+ const img=document.querySelector('.rc .ic img');
+ if(img&&img.naturalWidth&&img.naturalHeight)return img.naturalHeight/img.naturalWidth;
+ return 1;
+}
+/* Untuk TEKS, `y` preset adalah baris awal gambar, BUKAN tepi atas huruf: font punya
+   ascender/leading di atasnya. Mesin melaporkan `dy_top` (jarak tepi tinta dari `y`)
+   dan `dcx` (simpangan pusat tinta dari tengah kanvas setelah geseran x), jadi posisi
+   tengah bisa dihitung tepat tanpa coba-coba. */
+function centerYFor(key){
+ if(key==='video'){const g=effGeom();return Math.round((CH-g.h)/2)}
+ if(key==='png')return Math.round((CH-S.png.w*pngAspect())/2);
+ const b=inkOf(key);
+ if(!b||!b.h)return Math.round(CH/2);   // lapisan pertama belum digambar
+ return Math.round((CH-b.h)/2)-Math.round(b.dy_top||0);
+}
+function centerXFor(key){
+ if(key==='video')return 0;                                  // 0 = tepat di tengah
+ if(key==='png')return Math.round((CW-S.png.w)/2);
+ const b=inkOf(key);
+ // teks: x = baseX() berarti nudge 0 (mengikuti align). `dcx` mengoreksi sisa
+ // pembulatan/asimetri glyph supaya pusat tinta benar-benar di tengah kanvas.
+ return baseX()-Math.round((b&&b.dcx)||0);
+}
+function offY(key){return Math.round((num(S[key].y,0))-centerYFor(key))}
+function offX(key){
+ const cur=(key==='video')?num(S.video.x,0):num(S[key].x,centerXFor(key));
+ return Math.round(cur-centerXFor(key));
+}
+function setOffY(key,el){
+ const v=num(el&&el.value!==undefined?el.value:el,0);
+ S[key].y=centerYFor(key)+Math.round(v);
+ showNum(el,Math.round(v));
+ syncAll()}
+function setOffX(key,el){
+ const v=num(el&&el.value!==undefined?el.value:el,0);
+ S[key].x=centerXFor(key)+Math.round(v);
+ showNum(el,Math.round(v));
+ syncAll()}
+function showNum(el,v){
+ const box=el&&el.closest?el.closest('.ctl'):null;
+ const n=box?box.querySelector('.num'):null;
+ if(n)n.textContent=v}
+/* Slider simetris: min = -max, jadi titik tengahnya PASTI 0.
+   Item 22: format side-by-side X & Y dalam 1 baris + input angka manual.
+   Memakai class `.ctl-xy` yang stylenya sudah ada di p3.css (bukan style inline). */
+function xyRow(label,key,val,mx,setter){
+ return '<div class="ctl-xy">'+
+  '<span class="xy-label">'+label+'</span>'+
+  '<input type="range" min="'+(-mx)+'" max="'+mx+'" step="1" value="'+val+'"'+
+   ' oninput="'+esc(setter+'(\''+key+'\',this);xySync(this)')+'">'+
+  '<input class="xy-num" type="number" value="'+val+'"'+
+   ' onchange="'+esc(setter+'(\''+key+'\',this);xySync(this)')+'">'+
+  '</div>'}
+function sliderXY(key){
+ return '<div class="ctl full">'+
+  xyRow('X',key,offX(key),Math.round(CW/2),'setOffX')+
+  xyRow('Y',key,offY(key),Math.round(CH/2),'setOffY')+
+  '</div>'}
+
+/* Sinkronkan slider <-> input angka dalam 1 baris */
+function xySync(el){
+ const row=el.closest('.ctl-xy'); if(!row)return;
+ const rng=row.querySelector('input[type=range]'),n=row.querySelector('input[type=number]');
+ if(el.type==='range'&&n)n.value=el.value;
+ if(el.type==='number'&&rng)rng.value=el.value;}
+
+/* Geser X = NUDGE dari posisi hasil perataan, bukan koordinat absolut.
+   Preset tetap menyimpan `x` gaya lama (45 + nudge, diskalakan ke lebar kanvas) supaya
+   preset lama terbaca; UI menampilkan nudge-nya saja agar 0 = "pas di posisi align".
+   Tanpa ini slider 0..CW terasa acak: nilai 64 berarti bergeser 19px, bukan x=64. */
+function baseX(){return Math.round(45*(CW/1080))}
+function nudgeX(key){return Math.round((S[key].x||baseX())-baseX())}
+function setNudge(key,el){const v=num(el&&el.value!==undefined?el.value:el,0);
+ S[key].x=baseX()+v;
+ const box=el&&el.closest?el.closest('.ctl'):null;
+ const n=box?box.querySelector('.num'):null;
+ if(n)n.textContent=Math.round(v);
+ syncAll()}
+
+/* Panel SHADOW lengkap. Dulu shadow hanya satu angka yang dipakai sebagai offset x=y
+   dan warnanya selalu hitam (batasan ffmpeg drawtext). Setelah teks digambar
+   text_engine, shadow jadi lapisan sendiri: offset x/y terpisah, warna sendiri, blur,
+   dan urutan lapisan bisa ditukar.
+   CATATAN PENTING untuk efek 3D: kalau warna shadow SAMA dengan warna outline,
+   keduanya menyatu jadi satu massa dan kesan timbul hilang. Beri warna berbeda. */
+function shadowBlock(key){
+ const b=S[key];
+ let h='<div class="ctl"><label>'+L('shadow')+'</label>'+sw(b.shadowOn,'toggleB("'+key+'.shadowOn")')+'</div>';
+ if(!b.shadowOn)return h;
+ h+=slider(L('shadowX'),b.shadowX,-40,40,1,'setN("'+key+'.shadowX",this)')+
+    slider(L('shadowY'),b.shadowY,-40,40,1,'setN("'+key+'.shadowY",this)')+
+    slider(L('shadowBlur'),b.shadowBlur,0,30,1,'setN("'+key+'.shadowBlur",this)')+
+    '<div class="ctl full"><label>'+L('shadowColor')+'</label></div>'+
+    colorBlock(key,'shadowColor',b.shadowColor)+
+    '<div class="ctl full"><label>'+L('layerOrder')+'</label>'+
+    '<div class="row"><button class="btn sm'+(b.layerOrder!=='shadow-fill-stroke'?' pri':'')+
+    '" onclick="setOrder(\'' + key + '\',\'shadow-stroke-fill\')">'+L('orderStrokeFill')+'</button>'+
+    '<button class="btn sm'+(b.layerOrder==='shadow-fill-stroke'?' pri':'')+
+    '" onclick="setOrder(\'' + key + '\',\'shadow-fill-stroke\')">'+L('orderFillStroke')+'</button></div></div>';
+ if(hex(b.shadowColor)===hex(b.outlineColor||autoStroke(b.color)))
+  h+='<div class="warnline">'+L('shadowSameWarn')+'</div>';
+ return h}
+function setOrder(k,v){S[k].layerOrder=v;syncAll();buildInspector()}
+
+function outlineBlock(key){
+ const b=S[key],isAuto=!b.outlineColor;
+ return '<div class="ctl full"><label>'+L('outlineColor')+'</label>'+
+  '<div class="row"><button class="btn sm'+(isAuto?' pri':'')+'" onclick="setOutlineAuto(\''+key+'\')">'+L('auto')+'</button>'+
+  '<button class="btn sm'+(isAuto?'':' pri')+'" onclick="setOutlineCustom(\''+key+'\')">'+L('custom')+'</button></div></div>'+
+  /* Mode Auto: warna hasil hitungan ditampilkan sebagai BULATAN, bukan teks keterangan
+     (item 22 membuang seluruh .hint dari panel Style). Bulatannya mati (tanpa onclick)
+     karena nilainya dihitung dari warna isi teks, bukan dipilih user. */
+  (isAuto?'<div class="cp"><div class="sw5"><span class="dot on" style="background:'+
+    autoStroke(b.color)+'"></span><span class="cval">'+autoStroke(b.color)+'</span></div></div>'
+   :colorBlock(key,'outlineColor',b.outlineColor))}
+function setOutlineAuto(k){S[k].outlineColor='';syncAll();buildInspector()}
+function setOutlineCustom(k){if(!S[k].outlineColor)S[k].outlineColor=autoStroke(S[k].color);syncAll();buildInspector()}
+
+/* outline: slider bipolar. Tengah (0) = tanpa stroke.
+   Ke KANAN = inner (mengikis ke dalam), ke KIRI = outer (melebar ke luar).
+   State disimpan sebagai `outline` (ketebalan >=0) + `outlineMode` ('outer'|'inner');
+   nilai slider = +tebal untuk inner, -tebal untuk outer. */
+function strokeSliderVal(b){return (b.outlineMode==='inner'?1:-1)*Math.abs(b.outline||0)}
+function setStroke(key,el){
+ const v=Math.round(num(el&&el.value!==undefined?el.value:el,0));
+ const b=S[key];
+ b.outline=Math.abs(v);
+ if(v>0)b.outlineMode='inner'; else if(v<0)b.outlineMode='outer';
+ syncAll();
+ const box=el&&el.closest?el.closest('.strokeWrap'):null;
+ const n=box?box.querySelector('.num'):null;
+ if(n)n.textContent=strokeLabel(b);
+}
+function strokeLabel(b){
+ const w=Math.abs(b.outline||0);
+ if(!w)return L('strokeOff');
+ return (b.outlineMode==='inner'?'IN ':'OUT ')+w}
+function strokeBlock(key){
+ const b=S[key],v=strokeSliderVal(b);
+ return '<div class="strokeWrap">'+
+  '<div class="ctl"><label>'+L('outline')+'</label><span class="num">'+strokeLabel(b)+'</span>'+
+  '<input style="grid-column:1/-1" type="range" min="-20" max="20" step="1" value="'+v+
+  '" oninput="'+esc('setStroke(\''+key+'\',this)')+'"></div>'+
+  '<div class="strokeEnds"><span>← '+L('outer')+'</span><span>'+L('off')+'</span><span>'+L('inner')+' →</span></div>'+
+  '</div>'}
+
+function set(path,v){const p=path.split('.');let o=S;for(let i=0;i<p.length-1;i++)o=o[p[i]];
+ o[p[p.length-1]]=v;syncAll()}
+
+/* ====== KERAPATAN SUBTITLE (1 / 3 / 5 kata) ======
+   Dibakukan di theme (permintaan user 2026-08-30): SRT selalu ditulis 1 kata per entri
+   oleh Stage 4, lalu theme yang menentukan tampilannya — jadi tidak perlu lagi opsi
+   subtitle di tab Run, dan mengubahnya TIDAK butuh menjalankan Stage 4 ulang.
+
+   Teks contoh dibuat otomatis sebanyak N kata supaya kerapatannya KELIHATAN di preview
+   ("SUBTITLE" vs "SUBTITLE SUBTITLE SUBTITLE"). Begitu user mengetik teksnya sendiri,
+   contoh otomatis berhenti menimpanya — kalau tidak, ketikan user akan hilang setiap
+   pilihan kata diubah. */
+function sampleSubText(n){
+ return new Array(Math.max(1,+n||1)).fill('SUBTITLE').join(' ')}
+function setWpl(v){
+ S.sub.wpl=Math.max(1,+v||1);
+ if(S.sub.autoText!==false)S.sub.text=sampleSubText(S.sub.wpl);
+ syncAll();buildInspector()}
+function setSubText(v){
+ S.sub.text=v;
+ // Kosong = kembali ke contoh otomatis; ada isi = milik user, jangan ditimpa.
+ S.sub.autoText=!String(v||'').trim();
+ if(S.sub.autoText)S.sub.text=sampleSubText(S.sub.wpl);
+ syncAll()}
+/* el = elemen input (dikirim sebagai `this`), bukan window.event — lebih andal. */
+function setN(path,el){const v=num(el&&el.value!==undefined?el.value:el,0);
+ set(path,v);
+ const box=el&&el.closest?el.closest('.ctl'):null;
+ const n=box?box.querySelector('.num'):null;
+ if(n)n.textContent=Math.round(v)}
+/* Sama dengan setN tapi TIDAK dibulatkan ke integer: untuk nilai pecahan seperti
+   durasi intro (0.4s) yang kalau dibulatkan akan berubah jadi 0 atau 1. */
+function setNf(path,el){const v=num(el&&el.value!==undefined?el.value:el,0);
+ set(path,v);
+ const box=el&&el.closest?el.closest('.ctl'):null;
+ const n=box?box.querySelector('.num'):null;
+ if(n)n.textContent=v.toFixed(2)+'s'}
+function setNr(path,el,div){const raw=num(el&&el.value!==undefined?el.value:el,0);
+ set(path,raw/(div||1));
+ const box=el&&el.closest?el.closest('.ctl'):null;
+ const n=box?box.querySelector('.num'):null;
+ if(n)n.textContent=raw+'%'}
+function toggleB(path){const p=path.split('.');let o=S;for(let i=0;i<p.length-1;i++)o=o[p[i]];
+ const k=p[p.length-1];o[k]=!o[k];syncAll();buildInspector()}
+
+function fontOpts(){return _fonts.length?_fonts.map(f=>[f.file,f.family+(f.protected?' ('+L('builtin')+')':'')]):[['','—']]}
+
+function buildInspector(){
+ const box=$('inspector'); if(!box)return;
+ let h='';
+
+ // 1. Canvas (Format & Rasio). Tidak ada lagi label mati "1080×1920": angka itu sudah
+ //    tertulis di tiap opsi dropdown, dan sebagai teks terpisah ia cuma membingungkan
+ //    (bug.txt P4.16).
+ h+=sec('canvas','',L('secCanvas'),
+   selectBox(L('ratio'),_canvases.map(c=>[c.id,c.label+' · '+c.w+'×'+c.h]),S.canvasId,'setCanvasSize(this.value)'));
+
+ // 2. Video — Posisi X & Y memakai slider zero-center (0 = tepat tengah kanvas).
+ h+=sec('video','',L('secVideo'),
+   selectBox(L('sourceRatio'),[['16/9','16:9'],['19/6','19:6'],['4/3','4:3'],['1/1','1:1'],['9/16','9:16']],S.video.aspect,'set("video.aspect",this.value);buildInspector()')+
+   slider(L('scale'),scaleToZoom(S.video.scale),0,300,1,'setVideoZoom(this)','%')+
+   sliderXY('video')+
+   slider(L('radius'),S.video.radius,0,200,1,'setN("video.radius",this)')+
+   '<div class="row"><button class="btn sm" onclick="centerV()">'+L('center')+'</button>'+
+   '<button class="btn sm" onclick="resetV()">'+L('reset')+'</button></div>'+
+   '<div class="divider"></div>'+
+   '<div class="ctl"><label>'+L('blurBg')+'</label>'+sw(!!S.video.blurOn,'toggleB("video.blurOn")')+'</div>'+
+   (S.video.blurOn?slider(L('blurRadius'),(S.video.blur||40),0,200,1,'setN("video.blur",this)'):''));
+
+ // 3. Headline (item 22: hapus textBox, hapus label Font, hapus hint, tambah divider)
+ const hd=S.head;
+ h+=sec('head','',L('secHead'),
+   selectBox('',fontOpts(),hd.font,'set("head.font",this.value);buildInspector()')+
+   slider(L('size'),hd.size,20,240,1,'setN("head.size",this)')+
+   slider(L('maxLines'),hd.maxLines,1,4,1,'setN("head.maxLines",this)')+
+   sliderXY('head')+
+   alignBlock('head')+
+   slider(L('lineGap'),Math.round(hd.lineSpacing*100),-55,60,1,'setNr("head.lineSpacing",this,100)')+
+   '<div class="divider"></div>'+
+   '<div class="ctl full"><label>'+L('color')+'</label></div>'+colorBlock('head','color',hd.color)+
+   strokeBlock('head')+
+   outlineBlock('head')+
+   shadowBlock('head'),
+   sw(hd.on,'toggleB("head.on")'));
+
+ // 4. Subtitle (item 22: hapus textBox manual, hapus label Font, hapus hints, tambah divider)
+ const s=S.sub;
+ h+=sec('sub','',L('secSub'),
+   selectBox('',fontOpts(),s.font,'set("sub.font",this.value);buildInspector()')+
+   slider(L('size'),s.size,20,240,1,'setN("sub.size",this)')+
+   slider(L('maxLines'),s.maxLines,1,4,1,'setN("sub.maxLines",this)')+
+   sliderXY('sub')+
+   alignBlock('sub')+
+   slider(L('lineGap'),Math.round(s.lineSpacing*100),-55,60,1,'setNr("sub.lineSpacing",this,100)')+
+   '<div class="divider"></div>'+
+   '<div class="ctl full"><label>'+L('color')+'</label></div>'+colorBlock('sub','color',s.color)+
+   strokeBlock('sub')+
+   outlineBlock('sub')+
+   shadowBlock('sub')+
+   selectBox(L('animation'),[['none',L('none')],['pop',L('pop')],['fade',L('fade')],['up',L('up')],
+     ['word',L('wordAnim')],['karaoke',L('karaoke')]],s.anim,'set("sub.anim",this.value);buildInspector()')+
+   ((s.anim==='word'||s.anim==='karaoke')?
+     ('<div class="ctl full"><label>'+L('activeColor')+'</label></div>'+
+      colorBlock('sub','active',s.active)):'')+
+   selectBox(L('wordsPerLine'),[[1,L('wpl1')],[3,L('wpl3')],[5,L('wpl5')]],
+     (S.sub.wpl||3),'setWpl(this.value)'));
+
+ // 5. Creator (Watermark) — DIKEMBALIKAN (permintaan user 2026-09-01): kartu ini yang
+ //    dipakai untuk mengatur TATA LETAK teks "Creator!" di kanvas. Sebelumnya ia sempat
+ //    dibuang karena salah tulis di bug.txt.
+ //    Bentuknya mengikuti aturan item 22 yang sama dengan Headline & Subtitle:
+ //    label "Font" dan "Align" dihilangkan, tanpa .hint, dan satu divider memisahkan
+ //    [Font, Size, X/Y, Align] dari [Warna, Outline, Shadow].
+ //    Kotak teks manual TIDAK dipasang: teks watermark memakai penanda otomatis
+ //    (WM_AUTO_TOKENS) yang saat render diganti nama kreator video.
+ const w=S.wm;
+ h+=sec('wm','',L('secWm'),
+   selectBox('',fontOpts(),w.font,'set("wm.font",this.value);buildInspector()')+
+   slider(L('size'),w.size,20,240,1,'setN("wm.size",this)')+
+   sliderXY('wm')+
+   alignBlock('wm')+
+   '<div class="divider"></div>'+
+   '<div class="ctl full"><label>'+L('color')+'</label></div>'+colorBlock('wm','color',w.color)+
+   strokeBlock('wm')+
+   outlineBlock('wm')+
+   shadowBlock('wm'),
+   sw(w.on,'toggleB("wm.on")'));
+
+ // 6. Sticker (item 22: reorder Size->X/Y->divider->Opacity->Shadow)
+ h+=sec('png','',L('secPng'),
+   slider(L('size'),S.png.w,40,900,1,'setN("png.w",this)')+
+   sliderXY('png')+
+   '<div class="divider"></div>'+
+   slider(L('opacity'),Math.round(S.png.opacity*100),0,100,1,'setNr("png.opacity",this,100)','%')+
+   shadowBlock('png'),
+   sw(S.png.on,'toggleB("png.on")'));
+
+ // 7. Intro Cover (item 12) — lapisan penutup di detik-detik AWAL video.
+ //    Video & audio utama TETAP jalan dari detik 0 di latar; cover hanya menutupi
+ //    layar lalu fade out. Gunanya: frame pertama itulah yang dipakai TikTok/Shorts
+ //    sebagai thumbnail feed.
+ //    Kontrol hanya muncul saat sakelarnya ON supaya panel tidak penuh saat tidak dipakai.
+ h+=sec('intro','',L('secIntro'),
+   (S.intro.on?(
+     slider(L('introDur'),(+S.intro.dur||0.4).toFixed(2),0.1,2,0.05,'setNf("intro.dur",this)','s')+
+     slider(L('introFade'),(+S.intro.fade||0).toFixed(2),0,1,0.05,'setNf("intro.fade",this)','s')+
+     '<div class="divider"></div>'+
+     '<div class="ctl full"><label>'+L('introBg')+'</label>'+
+     '<div class="row"><button class="btn sm" onclick="importIntroBg()">＋ '+L('import')+'</button>'+
+     (S.intro.bg?('<button class="btn sm" onclick="clearIntroBg()" data-i18n-title="trash" title="'+esc(L('trash'))+'">'+ICON_TRASH+'</button>'):'')+
+     '</div></div>'+
+     (S.intro.bgUrl?('<div class="introthumb" style="background-image:url('+S.intro.bgUrl+')"></div>'):'')+
+     '<div class="ctl"><label>'+L('introHead')+'</label>'+sw(S.intro.head,'toggleB("intro.head")')+'</div>'+
+     '<div class="ctl"><label>'+L('introWm')+'</label>'+sw(S.intro.wm,'toggleB("intro.wm")')+'</div>'
+   ):''),
+   sw(S.intro.on,'toggleB("intro.on")'));
+
+ // 8. Export Option (item 22: hapus hint)
+ h+=sec('export','',L('secExport'),
+   slider(L('quality'),S.exp.crf,14,30,1,'setN("exp.crf",this)')+
+   selectBox(L('speed'),[['veryfast','veryfast'],['fast','fast'],['medium','medium'],['slow','slow']],
+     S.exp.preset,'set("exp.preset",this.value)'));
+
+ box.innerHTML=h;
+ refreshWmPlaceholder();
+}
+
+/* Pusatkan / reset kotak video. `centerV` memakai perhitungan tengah yang SAMA dengan
+   slider zero-center supaya tombol dan slider tidak pernah berbeda pendapat. */
+function centerV(){
+ S.video.x=0;
+ S.video.y=centerYFor('video');
+ syncAll();buildInspector()}
+function resetV(){
+ S.video.scale=1.0;S.video.x=0;S.video.radius=0;
+ S.video.y=centerYFor('video');
+ syncAll();buildInspector()}
+
+/* ============ IMAGE LAYERS (FRAME & OVERLAY) ============ */
+/* Bridge `list_frames()` mengirim `frame_url` (file:// ke frame.png) dan
+   `thumbnail_url`. TIDAK ADA field bernama `url` — memakai `f.url` menghasilkan
+   undefined, `setFrameImg(undefined)` menyembunyikan lapisan, dan frame yang diklik
+   di Library tidak pernah muncul di preview tengah (bug P1.1 di bug.txt).
+   Semua pembacaan URL frame WAJIB lewat helper ini. */
+function frameUrl(f){
+ if(!f)return '';
+ return f.frame_url||f.url||'';
+}
+
+function setFrameImg(url){
+ document.querySelectorAll('.rc').forEach(rc=>{
+  let img=rc.querySelector('.frameimg');
+  if(url){
+   if(!img){
+    img=document.createElement('img');
+    img.className='frameimg';
+    rc.appendChild(img);
+   }
+   if(img.getAttribute('src')!==url)img.setAttribute('src',url);
+   img.style.display='';
+  } else if(img){
+   img.style.display='none';
+   img.removeAttribute('src');
+  }
+ });
+}
+
+function setOverlayImg(url){
+ document.querySelectorAll('.rc .ic').forEach(ic=>{
+  let img=ic.querySelector('img');
+  if(url){
+   if(!img){
+    img=document.createElement('img');
+    ic.appendChild(img);
+   }
+   if(img.getAttribute('src')!==url)img.setAttribute('src',url);
+   ic.classList.remove('empty');
+  } else {
+   if(img)img.remove();
+   ic.classList.add('empty');
+  }
+ });
+}
+
+/* ============ PRESET <-> STATE ============ */
+function buildPreset(){
+ return {
+  canvas:{w:CW,h:CH,id:S.canvasId},
+  frame:{id:S.frame||'',path:''},
+  video:{scale:+S.video.scale.toFixed(4),x:Math.round(+S.video.x||0),y:Math.round(S.video.y),
+         radius:Math.round(S.video.radius),aspect:S.video.aspect,
+         blur_background:!!S.video.blurOn, blur_radius:Math.round(+S.video.blur||40)},
+  subtitle:{font:S.sub.font,size:Math.round(S.sub.size),y:Math.round(S.sub.y),
+   align:S.sub.align||'center',max_lines:Math.max(1,S.sub.maxLines|0),
+   line_spacing:+(+S.sub.lineSpacing||-0.15).toFixed(3),
+   outline:Math.round(Math.abs(S.sub.outline)),outline_mode:S.sub.outlineMode||'outer',
+   outline_color:S.sub.outlineColor||'',
+   shadow_enabled:!!S.sub.shadowOn,
+   shadow_x:Math.round(S.sub.shadowX),shadow_y:Math.round(S.sub.shadowY),
+   shadow_color:hex(S.sub.shadowColor),shadow_blur:Math.round(S.sub.shadowBlur),
+   layer_order:S.sub.layerOrder||'shadow-stroke-fill',
+   color:hex(S.sub.color),active_color:hex(S.sub.active),
+   animation:S.sub.anim,words_per_line:Math.max(1,S.sub.wpl|0)},
+  headline:{enabled:!!S.head.on,text:S.head.text,gemini_default:false,font:S.head.font,
+   size:Math.round(S.head.size),x:Math.round(S.head.x),y:Math.round(S.head.y),
+   max_lines:Math.max(1,S.head.maxLines|0),align:S.head.align||'center',
+   line_spacing:+(+S.head.lineSpacing||-0.25).toFixed(3),
+   outline:Math.round(Math.abs(S.head.outline)),outline_mode:S.head.outlineMode||'outer',
+   outline_color:S.head.outlineColor||'',
+   shadow_enabled:!!S.head.shadowOn,
+   shadow_x:Math.round(S.head.shadowX),shadow_y:Math.round(S.head.shadowY),
+   shadow_color:hex(S.head.shadowColor),shadow_blur:Math.round(S.head.shadowBlur),
+   layer_order:S.head.layerOrder||'shadow-stroke-fill',
+   color:hex(S.head.color)},
+  watermark:{enabled:!!S.wm.on,text:S.wm.text,font:S.wm.font,size:Math.round(S.wm.size),
+   x:Math.round(S.wm.x),y:Math.round(S.wm.y),max_lines:1,align:S.wm.align||'center',
+   outline:Math.round(Math.abs(S.wm.outline)),outline_mode:S.wm.outlineMode||'outer',
+   outline_color:S.wm.outlineColor||'',
+   shadow_enabled:!!S.wm.shadowOn,
+   shadow_x:Math.round(S.wm.shadowX),shadow_y:Math.round(S.wm.shadowY),
+   shadow_color:hex(S.wm.shadowColor),shadow_blur:Math.round(S.wm.shadowBlur),
+   layer_order:S.wm.layerOrder||'shadow-stroke-fill',
+   color:hex(S.wm.color)},
+  custom_png:{enabled:!!S.png.on,path:S.png.path||'',
+   x:Math.round(S.png.x),y:Math.round(S.png.y),width:Math.round(S.png.w),
+   opacity:+(+S.png.opacity).toFixed(3)},
+  intro:{enabled:!!S.intro.on,
+   duration:+(+S.intro.dur||0.4).toFixed(2),
+   fade:+(+S.intro.fade||0).toFixed(2),
+   background:S.intro.bg||'',
+   show_headline:!!S.intro.head,
+   show_creator:!!S.intro.wm},
+  export:{w:CW,h:CH,crf:S.exp.crf|0,preset:S.exp.preset}
+ }}
+
+function applyPreset(p){
+ if(!p||typeof p!=='object')return;
+ const c=p.canvas||{}; CW=+c.w||CW; CH=+c.h||CH;
+ S.canvasId=c.id||(_canvases.find(x=>x.w===CW&&x.h===CH)||{}).id||S.canvasId;
+ S.frame=(p.frame||{}).id||'';
+ const v=p.video||{};
+ S.video={scale:+v.scale||1,x:+v.x||0,y:+v.y||0,radius:+v.radius||0,aspect:v.aspect||'16/9',
+          blurOn:!!v.blur_background, blur:+v.blur_radius||40};
+ const shadowIn=(b,defOff)=>{
+  const legacy=(+b.shadow||0);
+  return {shadowOn:b.shadow_enabled!==false,
+   shadowX:(b.shadow_x===undefined?(legacy||defOff):+b.shadow_x),
+   shadowY:(b.shadow_y===undefined?(legacy||defOff):+b.shadow_y),
+   shadowColor:b.shadow_color||'#000000',
+   shadowBlur:+b.shadow_blur||0,
+   layer_order:b.layer_order||'shadow-stroke-fill'}};
+ const s=p.subtitle||{};
+ S.sub=Object.assign({font:s.font||'subtitle.ttf',size:+s.size||80,y:+s.y||0,
+  align:s.align||'center',maxLines:Math.max(1,+s.max_lines||2),
+  lineSpacing:(s.line_spacing===undefined?-0.15:
+    (Math.abs(+s.line_spacing)<=1?+s.line_spacing:+s.line_spacing/86)),
+  outline:+s.outline||0,
+  outlineMode:s.outline_mode||'outer',outlineColor:s.outline_color||'',
+  color:s.color||'#FFFFFF',active:s.active_color||'#FFA500',
+  anim:s.animation||'none',
+  wpl:(function(v){v=+v||0; if(v<=0)return 3; if(v<=1)return 1; if(v<=4)return 3; return 5})(s.words_per_line),
+  autoText:S.sub.autoText,text:S.sub.text},shadowIn(s,3));
+ if(S.sub.autoText!==false)S.sub.text=sampleSubText(S.sub.wpl);
+ const h=p.headline||{};
+ S.head=Object.assign({on:h.enabled!==false,text:h.text||S.head.text,
+  font:h.font||'title.ttf',size:+h.size||86,
+  x:+h.x||45,y:+h.y||55,maxLines:Math.max(1,+h.max_lines||2),align:h.align||'center',
+  lineSpacing:(h.line_spacing===undefined?-0.25:
+    (Math.abs(+h.line_spacing)<=1?+h.line_spacing:+h.line_spacing/86)),
+  outline:+h.outline||0,outlineMode:h.outline_mode||'outer',
+  outlineColor:h.outline_color||'',color:h.color||'#FFFFFF'},shadowIn(h,8));
+ const w=p.watermark||{};
+ S.wm=Object.assign({on:w.enabled!==false,text:w.text||S.wm.text,
+  font:w.font||'title.ttf',size:+w.size||130,
+  x:+w.x||45,y:+w.y||55,align:w.align||'center',outline:+w.outline||0,outlineMode:w.outline_mode||'outer',
+  outlineColor:w.outline_color||'',color:w.color||'#D94B0A'},shadowIn(w,6));
+ const g=p.custom_png||{};
+ S.png={on:!!g.enabled,name:(g.path||'').split('/').pop()||'',path:g.path||'',url:'',
+  x:+g.x||0,y:+g.y||0,w:+g.width||220,
+  opacity:(g.opacity===undefined||g.opacity===null)?1:Math.max(0,Math.min(1,+g.opacity))};
+ if(S.png.path&&B&&B.overlay_url){B.overlay_url(S.png.path,u=>{if(u){S.png.url=u;setOverlayImg(u);renderOverlayList()}
+  else{S.png.on=false;S.png.url='';syncAll();buildInspector();toast(L('pngMissing'))}})}
+ else setOverlayImg('');
+ const e=p.export||{};
+ S.exp={crf:(e.crf===undefined?18:+e.crf),preset:e.preset||'medium'};
+ // Intro Cover (item 12). Preset lama tanpa blok `intro` -> tetap mati, aman.
+ const ic=p.intro||{};
+ S.intro={on:!!ic.enabled,
+  dur:(ic.duration===undefined?0.4:Math.max(0.05,+ic.duration||0.4)),
+  fade:(ic.fade===undefined?0.15:Math.max(0,+ic.fade||0)),
+  bg:ic.background||'',bgUrl:'',
+  head:ic.show_headline!==false,wm:ic.show_creator!==false};
+ // Gambar cover disimpan sebagai path relatif di preset; URL file:// untuk preview
+ // diminta ke host, sama caranya dengan stiker overlay.
+ if(S.intro.bg&&B&&B.overlay_url){
+  B.overlay_url(S.intro.bg,u=>{S.intro.bgUrl=u||''; if(!u)S.intro.bg=''; buildInspector()});
+ }
+ 
+ const curF=_frames.find(x=>x.id===S.frame);
+ if(curF)setFrameImg(frameUrl(curF));
+
+ computeRC(); syncAll(); buildInspector(); renderFrames(); renderThemes(); renderOverlayList();
+}
+
+function loadFrames(){
+ if(!(B&&B.list_frames)){renderFrames();return}
+ B.list_frames(js=>{let d=[];try{d=JSON.parse(js)}catch(e){}
+  if(!Array.isArray(d)){toast(L('failed')+((d&&d.error)||'?'));return}
+  _frames=d;
+  let cur=null;
+  if(S.frame&&_frames.some(x=>x.id===S.frame)){
+   cur=_frames.find(x=>x.id===S.frame);
+  } else if(_frames[0]){
+   S.frame=_frames[0].id;
+   cur=_frames[0];
+  }
+  if(cur)setFrameImg(frameUrl(cur));
+  renderFrames();
+  syncAll();
+ });
+}
+
+function renderFrames(){
+ const box=$('frameGrid'); if(!box)return;
+ if(!_frames.length){box.innerHTML='<div class="empty">'+L('noFrame')+'</div>';return}
+ box.innerHTML=_frames.map(f=>{
+  const on=f.id===S.frame;
+  const desc=(f.tags&&f.tags.length)?f.tags.join(', '):'';
+  return '<button class="card'+(on?' on':'')+'" onclick="pickFrame(\''+f.id+'\')">' +
+   trashBtn("event.stopPropagation();delFrame('"+f.id+"')",L('trash')) +
+   '<span class="th" style="background-image:url(\''+f.thumbnail_url+'\')">' +
+   '<span class="center-overlay">' +
+   '<b>'+f.name+'</b>' +
+   (desc?'<small>'+desc+'</small>':'') +
+   '</span></span>' +
+   '</button>';
+ }).join('');
+}
+
+function pickFrame(id){
+ const f=_frames.find(x=>x.id===id);
+ S.frame=id;
+ setFrameImg(frameUrl(f));
+ renderFrames();
+ syncAll();
+}
+
+function importFrame(){
+ if(!(B&&B.import_frame_dialog)){toast(L('guiOnly'));return}
+ B.import_frame_dialog(js=>{let r={};try{r=JSON.parse(js)}catch(e){}
+  if(r.error){toast(L('failed')+r.error);return}
+  if(r.id){loadFrames();pickFrame(r.id)}});
+}
+
+function delFrame(id){
+ const f=_frames.find(x=>x.id===id),nm=f?f.name:id;
+ const go=()=>B.delete_frame(id,js=>{let r={};try{r=JSON.parse(js)}catch(e){}
+  if(r.error){toast(L('failed')+r.error);return}
+  if(S.frame===id){S.frame='';setFrameImg('')}
+  loadFrames();toast(L('frameDeleted')+nm)});
+ if(!(B&&B.delete_frame)){toast(L('guiOnly'));return}
+ B.confirm?B.confirm(L('askDelFrame')+'\n\n'+nm,ok=>{if(ok)go()}):(confirm(L('askDelFrame'))&&go());
+}
+
+function loadCanvases(){
+ if(!(B&&B.list_canvases)){setCanvasSize('9x16');return}
+ B.list_canvases(js=>{let d=[];try{d=JSON.parse(js)}catch(e){}
+  _canvases=Array.isArray(d)&&d.length?d:[{id:'9x16',label:'9:16',w:1080,h:1920,ratio:'9:16'}];
+  setCanvasSize(S.canvasId);
+ });
+}
+
+function loadActivePreset(){
+ if(!(B&&B.active_preset)){_booting=false;return}
+ B.active_preset(js=>{let d={};try{d=JSON.parse(js)}catch(e){}
+  if(d&&d.canvas)applyPreset(d);
+  _booting=false;
+ });
+}
+
+/* ============ IKON ============
+   Tombol hapus item memakai ikon TEMPAT SAMPAH merah, bukan huruf "×" (bug.txt P4.20).
+   Satu sumber ikon supaya kartu Frame, Theme, Sticker, dan baris Font tidak pernah
+   berbeda bentuk. */
+const ICON_TRASH='<svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true">'+
+ '<g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">'+
+ '<path d="M2.5 4h9"/><path d="M5.6 4V2.6h2.8V4"/>'+
+ '<path d="M3.6 4l.6 7.2a.8.8 0 0 0 .8.7h4a.8.8 0 0 0 .8-.7L10.4 4"/>'+
+ '<path d="M6 6.3v4"/><path d="M8 6.3v4"/></g></svg>';
+/* Elemen SPAN, bukan tombol: kartu Frame/Theme sendiri sudah sebuah tombol, dan
+   tombol di dalam tombol adalah HTML tidak sah — parser memecah nesting-nya
+   sehingga tombol hapus terlempar keluar kartu. role/tabindex menjaga aksesibilitas.
+   (Jangan tulis tag literal di komentar ini: pemeriksa keseimbangan tag di build.py
+   ikut menghitungnya dan melaporkan MISMATCH palsu.) */
+function trashBtn(onclick,label){
+ return '<span class="x" role="button" tabindex="0" data-i18n-title="trash" title="'+esc(label||'')+
+  '" aria-label="'+esc(label||'')+'" onclick="'+esc(onclick)+'">'+ICON_TRASH+'</span>';
+}
+
+/* ============ THEME (PRESET) LIBRARY ============ */
+function themeThumb(t){
+ const f=_frames.find(x=>x.id===t.frame_id);
+ const url=f&&f.thumbnail_url?f.thumbnail_url:'';
+ return '<span class="th"'+(url?(' style="background-image:url(\''+url+'\')"'):'')+'>' +
+  '<span class="center-overlay">' +
+  '<b>'+t.name+'</b>' +
+  '<small>'+t.ratio+' · '+t.canvas+(t.words_per_line?(' · '+t.words_per_line+'w'):'')+'</small>' +
+  '</span></span>';
+}
+
+function renderThemes(){
+ const box=$('themeGrid'); if(!box)return;
+ if(!_themes.length){box.innerHTML='<div class="empty">'+L('noTheme')+'</div>';return}
+ box.innerHTML=_themes.map(t=>'<button class="card'+(t.id===_activeTheme?' on':'')+
+  '" onclick="useTheme(\''+t.id+'\')">' +
+  trashBtn("event.stopPropagation();delTheme('"+t.id+"')",L('trash')) +
+  themeThumb(t) +
+  '</button>').join('');
+}
+
+function loadThemes(){
+ if(!(B&&B.list_presets)){renderThemes();return}
+ B.list_presets(js=>{let d=[];try{d=JSON.parse(js)}catch(e){}
+  _themes=Array.isArray(d)?d:[];renderThemes()});
+}
+
+function saveTheme(){
+ if(!(B&&B.save_preset_as)){toast(L('guiOnly'));return}
+ const def=(_themes.find(t=>t.id===_activeTheme)||{}).name||'';
+ const done=js=>{let r={};try{r=JSON.parse(js)}catch(e){}
+  if(r.error){toast(L('failed')+r.error);return}
+  _activeTheme=r.id||'';loadThemes();toast(L('themeSaved')+(r.name||''))};
+ const go=name=>{if(!name)return;
+  B.save_preset_as(JSON.stringify(buildPreset()),name,'',js=>{
+   let r={};try{r=JSON.parse(js)}catch(e){}
+   if(r.exists){
+    const ask=L('askOverwrite').replace('%s',r.exists_name||name);
+    const ow=()=>B.overwrite_theme(JSON.stringify(buildPreset()),name,r.exists,done);
+    if(B.confirm)B.confirm(ask,ok=>{if(ok)ow();else askName(name)});
+    else if(confirm(ask))ow(); else askName(name);
+    return}
+   done(js)})};
+ const askName=def2=>{
+  if(B.prompt_text)B.prompt_text(L('themeName'),def2||'',js=>{let r={};try{r=JSON.parse(js)}catch(e){}
+    if(r.ok)go((r.text||'').trim())});
+  else go((prompt(L('themeName'),def2||'')||'').trim())};
+ askName(def);
+}
+
+function useTheme(id){
+ if(!(B&&B.load_theme))return;
+ B.load_theme(id,js=>{let r={};try{r=JSON.parse(js)}catch(e){}
+  if(r.error){toast(L('failed')+r.error);return}
+  _activeTheme=r.id||id;applyPreset(r.preset);renderThemes();
+  const t=_themes.find(x=>x.id===_activeTheme);toast(L('themeLoaded')+(t?t.name:id))});
+}
+
+function delTheme(id){
+ const t=_themes.find(x=>x.id===id),nm=t?t.name:id;
+ const go=()=>B.delete_theme(id,js=>{let r={};try{r=JSON.parse(js)}catch(e){}
+  if(r.error){toast(L('failed')+r.error);return}
+  if(_activeTheme===id)_activeTheme='';loadThemes();toast(L('themeDeleted')+nm)});
+ if(!(B&&B.delete_theme)){toast(L('guiOnly'));return}
+ B.confirm?B.confirm(L('askDelTheme')+'\n\n'+nm,ok=>{if(ok)go()}):(confirm(L('askDelTheme'))&&go());
+}
+
+/* ============ FONT LIBRARY ============ */
+function injectFaces(){
+ let el=$('userfonts');
+ if(!el){el=document.createElement('style');el.id='userfonts';document.head.appendChild(el)}
+ el.textContent=_fonts.filter(f=>f.url).map(f=>
+  "@font-face{font-family:'"+f.css_family+"';src:url('"+f.url+"');font-display:block}").join('');
+}
+
+function renderFontList(){
+ const box=$('fontList'); if(!box)return;
+ const c=$('fontCount'); if(c)c.textContent=_fonts.length+L('fontCount');
+ if(!_fonts.length){box.innerHTML='<div class="empty">—</div>';return}
+ box.innerHTML=_fonts.map(f=>'<div class="frow">' +
+  '<span class="n" style="font-family:\''+f.css_family+'\',sans-serif">'+f.family+'</span>' +
+  '<span class="kb">'+f.size_kb+'K</span>' +
+  (f.protected?'<span class="lock">'+L('builtin')+'</span>'
+             :trashBtn("delFont('"+f.file+"')",L('trash')))+'</div>').join('');
+}
+
+function loadFonts(notify){
+ if(!(B&&B.list_fonts)){renderFontList();return}
+ B.list_fonts(js=>{let d=[];try{d=JSON.parse(js)}catch(e){}
+  if(!Array.isArray(d)){toast(L('failed')+((d&&d.error)||'?'));return}
+  _fonts=d;injectFaces();
+  const has=f=>_fonts.some(x=>x.file===f);
+  if(!has(S.sub.font)&&_fonts[0])S.sub.font=_fonts[0].file;
+  if(!has(S.head.font)&&_fonts[0])S.head.font=_fonts[0].file;
+  if(!has(S.wm.font)&&_fonts[0])S.wm.font=_fonts[0].file;
+  syncAll();buildInspector();renderFontList();
+  if(notify)toast(_fonts.length+L('fontCount'))});
+}
+
+function importFont(){
+ if(!(B&&B.import_font_dialog)){toast(L('guiOnly'));return}
+ B.import_font_dialog(js=>{let r={};try{r=JSON.parse(js)}catch(e){}
+  if(r.error){toast(L('failed')+r.error);return}
+  const n=(r.imported||[]).length;
+  if((r.errors||[]).length)toast(L('failed')+r.errors[0]);
+  else if(n)toast(n+L('fontCount'));
+  if(n)loadFonts()});
+}
+
+function delFont(file){
+ const f=_fonts.find(x=>x.file===file),nm=f?f.family:file;
+ const go=()=>B.delete_font(file,js=>{let r={};try{r=JSON.parse(js)}catch(e){}
+  if(r.error){toast(L('failed')+r.error);return}
+  if(S.sub.font===file)S.sub.font='subtitle.ttf';
+  if(S.head.font===file)S.head.font='title.ttf';
+  if(S.wm.font===file)S.wm.font='title.ttf';
+  toast(L('fontDeleted')+nm);loadFonts()});
+ if(!(B&&B.delete_font)){toast(L('guiOnly'));return}
+ B.confirm?B.confirm(L('askDelFont')+'\n\n'+nm,ok=>{if(ok)go()}):(confirm(L('askDelFont'))&&go());
+}
+
+function openFontsFolder(){
+ if(B&&B.open_fonts_folder){B.open_fonts_folder(()=>{});toast('assets/fonts/')}
+ else toast(L('guiOnly'));
+}
+
+/* ============ OVERLAY (STICKER) LIBRARY ============ */
+function renderOverlayList(){
+ const box=$('overlayGrid'), stat=$('overlayStatus');
+ if(!box)return;
+ if(stat){
+  stat.textContent=S.png.name?S.png.name:L('noPng');
+ }
+ if(!S.png.path && !S.png.name){
+  box.innerHTML='<div class="empty">'+L('noPng')+'</div>';
+  return;
+ }
+ const imgUrl=S.png.url||'';
+ const imgHtml=imgUrl?('<span class="th" style="background-image:url(\''+imgUrl+'\')">' +
+  '<span class="center-overlay"><b>'+(S.png.name||'Sticker')+'</b></span></span>'):'';
+ box.innerHTML='<button class="card on">' +
+  trashBtn("event.stopPropagation();clearIcon()",L('trash')) +
+  imgHtml + '</button>';
+}
+
+function importOverlay(){
+ if(!(B&&B.import_overlay_dialog)){toast(L('guiOnly'));return}
+ B.import_overlay_dialog(js=>{let r={};try{r=JSON.parse(js)}catch(e){}
+  if(r.error){toast(L('failed')+r.error);return}
+  if(!r.path)return;
+  S.png.on=true;
+  S.png.name=r.name||String(r.path).split('/').pop()||'Sticker';
+  S.png.path=r.path;
+  S.png.url=r.url||'';
+  setOverlayImg(S.png.url);
+  syncAll();buildInspector();renderOverlayList();toast(S.png.name);
+ });
+}
+
+function clearIcon(){
+ S.png.on=false;S.png.name='';S.png.path='';S.png.url='';
+ setOverlayImg('');
+ syncAll();buildInspector();renderOverlayList();
+}
+
+/* ---- Intro Cover: impor gambar latar (item 12) ----
+   Memakai dialog native yang SAMA dengan stiker (`import_overlay_dialog`): file disalin
+   ke assets/overlays/ dan yang disimpan di preset adalah PATH RELATIF. Kalau memakai
+   <input type=file> biasa, gambar cuma ada di memori halaman (data URL) — preview
+   terlihat benar tapi render tidak menemukan filenya, kelas bug yang sudah pernah
+   kejadian dengan stiker. */
+function importIntroBg(){
+ if(!(B&&B.import_overlay_dialog)){toast(L('guiOnly'));return}
+ B.import_overlay_dialog(js=>{let r={};try{r=JSON.parse(js)}catch(e){}
+  if(r.error){toast(L('failed')+r.error);return}
+  if(!r.path)return;
+  S.intro.bg=r.path;
+  S.intro.bgUrl=r.url||'';
+  S.intro.on=true;
+  syncAll();buildInspector();
+  toast(r.name||String(r.path).split('/').pop());
+ });
+}
+function clearIntroBg(){
+ S.intro.bg='';S.intro.bgUrl='';
+ syncAll();buildInspector();
+}
+
+/* ============ ACCORDION HANDLER FOR LIBRARY ============
+   Panel Library memakai layout FIXED (tanpa scroll induk), jadi kartu yang TERBUKA
+   mendapat sisa ruang. Kalau semua kartu ditutup panel jadi kosong dan bingung, dan
+   kalau semua dibuka tiap seksi cuma dapat sisa sempit. Karena itu: satu kartu terbuka
+   pada satu waktu (accordion sungguhan), sama seperti panel Style di kanan. */
+function toggleLibAcc(id){
+ const el=$(id);
+ if(!el)return;
+ const willOpen=!el.classList.contains('on');
+ document.querySelectorAll('#libraryScroll > .acc').forEach(a=>a.classList.remove('on'));
+ if(willOpen)el.classList.add('on');
+}
+
+/* ============ THUMBNAIL SIZE CONTROLLER ============ */
+let _thumbSize='normal';
+
+function setThumbSize(sz){
+ _thumbSize=sz;
+ $('bThumbSmall').classList.toggle('on',sz==='small');
+ $('bThumbNorm').classList.toggle('on',sz==='normal');
+ const grids=document.querySelectorAll('.cards');
+ grids.forEach(g=>{
+  g.classList.toggle('thumb-small',sz==='small');
+  g.classList.toggle('thumb-norm',sz==='normal');
+ });
+}
+
+/* ============ ZOOM GESTURE: ctrl+wheel / pinch -> HANYA kanvas preview ============
+   bug.txt P1.5. Kenapa harus di halaman dan bukan cuma di filter Qt: hanya listener
+   `wheel` NON-PASSIVE di dalam halaman yang boleh memanggil preventDefault() untuk
+   membatalkan zoom bawaan Chromium. Filter Qt (NoZoomFilter) tetap dipertahankan
+   sebagai jaring untuk ctrl+plus/minus/0.
+   Di dalam area preview: gestur me-zoom preview. Di luar: gestur DIBATALKAN saja
+   (tidak nge-zoom apa pun) — bukan dibiarkan nge-zoom seluruh UI. */
+function initZoomGesture(){
+ if(window.__zoomGesture)return;
+ window.__zoomGesture=true;
+ const onWheel=e=>{
+  if(!e.ctrlKey)return;              // wheel biasa = scroll normal, jangan diganggu
+  e.preventDefault();                // apa pun posisinya: JANGAN zoom halaman
+  const vp=$('previewViewport');
+  if(!vp)return;
+  const r=vp.getBoundingClientRect();
+  const inPreview=(e.clientX>=r.left&&e.clientX<=r.right&&
+                   e.clientY>=r.top&&e.clientY<=r.bottom);
+  if(!inPreview)return;              // di luar preview: cukup dibatalkan
+  // deltaY < 0 = gulir ke atas / pinch keluar = perbesar
+  setZoom(S.zoom+(e.deltaY<0?10:-10));
+ };
+ // passive:false WAJIB, kalau tidak preventDefault() diabaikan browser.
+ window.addEventListener('wheel',onWheel,{passive:false});
+ document.addEventListener('wheel',onWheel,{passive:false});
+}
+
+/* ============ RESIZER DRAG HANDLER ============ */
+function initResizer(){
+ const resizer=$('resizerLeft');
+ if(!resizer)return;
+ let isDragging=false, startX=0, startW=240;
+
+ resizer.addEventListener('mousedown',e=>{
+  isDragging=true;
+  startX=e.clientX;
+  const col=$('colLeft');
+  startW=col?col.getBoundingClientRect().width:240;
+  resizer.classList.add('dragging');
+  document.body.style.cursor='col-resize';
+  document.body.style.userSelect='none';
+ });
+
+ window.addEventListener('mousemove',e=>{
+  if(!isDragging)return;
+  const dx=e.clientX-startX;
+  const newW=Math.max(160,Math.min(480,startW+dx));
+  document.documentElement.style.setProperty('--left-w',newW+'px');
+ });
+
+ window.addEventListener('mouseup',()=>{
+  if(!isDragging)return;
+  isDragging=false;
+  resizer.classList.remove('dragging');
+  document.body.style.cursor='';
+  document.body.style.userSelect='';
+ });
+}
+
+/* ============ RANDOM ============ */
+function randomStyle(){
+ const pick=a=>a[Math.floor(Math.random()*a.length)];
+ S.sub.color=pick(PAL.slice(0,4));
+ S.head.color=pick(PAL.slice(0,4));
+ if(_fonts.length){S.sub.font=pick(_fonts).file;S.head.font=pick(_fonts).file}
+ S.video.scale=+(0.6+Math.random()*0.4).toFixed(2);
+ S.sub.anim=pick(['none','pop','fade','up','word','karaoke']);
+ setWpl(pick([1,3,5]));
+ syncAll();buildInspector();toast(L('randomized'));
+}
+
+/* ============ BRIDGE + BOOT ============ */
+function initBridge(tries){
+ tries=tries||0;
+ if(B)return;
+ if(typeof qt!=='undefined'&&qt.webChannelTransport&&typeof QWebChannel!=='undefined'&&!window.__bt){
+  window.__bt=true;
+  try{new QWebChannel(qt.webChannelTransport,ch=>{
+   B=ch.objects.bridge;window._bridge=B;
+   if(B.get_language)B.get_language(js=>{try{const d=JSON.parse(js);LANG=(d.language==='en')?'en':'id'}catch(e){}
+    bootData()});
+   else bootData();
+  })}catch(e){window.__bt=false}
+ }
+ if(!B&&tries<60)setTimeout(()=>initBridge(tries+1),100);
+}
+
+function bootData(){
+ initResizer();
+ initZoomGesture();
+ loadFrames();
+ loadFonts();
+ loadThemes();
+ loadCanvases();
+ loadActivePreset();
+}
+
+window.addEventListener('DOMContentLoaded',()=>{
+ initResizer();
+ initZoomGesture();
+ initBridge();
+ applyI18n();
+});
+</script>
+</body>
+</html>

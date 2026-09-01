@@ -1,0 +1,255 @@
+================================================================================
+DAFTAR ITEM PEKERJAAN CLIPPER AGENT (DIBAGI BERDASARKAN STATUS)
+================================================================================
+Update terakhir: 2026-09-01
+Status verifikasi UI: 18/18 PASS di `tools/verify_customize_ui.py`, console_errors: 0.
+Status test suite : 367 passed | 0 failed. (18 test warisan lama yang mengunci perilaku
+                    kode lama sudah dibuang — lihat [CATATAN TEST] di bawah.)
+Rekap Progres     : 23 Selesai | 0 Terbuka
+
+================================================================================
+[SELESAI / SUDAH DICEKLIS (23 ITEM)]
+================================================================================
+
+[x] 1. Frame Tidak Muncul di Panel Preview Tengah
+   - Masalah: Frame ter-load di library, tapi preview tengah kosong saat diklik.
+   - Perbaikan: Menggunakan helper `frameUrl(f)` di j5.js untuk bridge `list_frames()`.
+   - Bukti: `.frameimg` src valid, naturalWidth 400.
+
+[x] 2. Teks Nama Kreator (Watermark) Tidak Muncul di Panel Preview
+   - Masalah: Opsi Kreator aktif tapi teks tidak muncul di canvas tengah.
+   - Perbaikan: Memberi fallback default contoh "CREATOR" jika data kurasi kosong.
+   - Bukti: `.wmlayer` src valid, naturalWidth 1080.
+
+[x] 3. Visual Toggle Switch On/Off di Panel Style Tidak Merespons
+   - Masalah: Logika jalan tapi kenop/warna sakelar tidak berubah saat diklik.
+   - Perbaikan: Mengembalikan fungsi `scheduleAutoApply()` di j2.js agar handler tidak macet.
+   - Bukti: Class `on` dan `backgroundColor` berubah real-time saat diklik.
+
+[x] 4. Rasio & Bentuk Thumbnail Frame Terdistorsi (Gepeng/Melar)
+   - Masalah: Thumbnail gepeng/melar saat panel library di-resize.
+   - Perbaikan: Set tinggi kartu eksplisit (`--thumb-h`) dan `background-size:contain`.
+   - Bukti: Lebar panel 200px vs 420px -> rasio kartu tetap 0.556 fixed.
+
+[x] 5. Pinch-to-Zoom Gesture Me-Zoom Seluruh UI Aplikasi
+   - Masalah: Gesture touchpad / ctrl+wheel me-zoom seluruh jendela aplikasi.
+   - Perbaikan: Pasang listener `wheel` non-passive (`initZoomGesture()` di j6.js) khusus kanvas preview.
+   - Bukti: Zoom preview bekerja mulus, UI luar preview tidak ter-zoom.
+
+[x] 6. Penyelarasan Bahasa UI (EN / ID Switch) 100%
+   - Masalah: Sebagian tombol/tooltip tidak ikut berubah bahasa.
+   - Perbaikan: Kamus i18n menyeluruh + kanal ketiga `data-i18n-title`.
+   - Bukti: 20 kunci data-i18n lengkap id + en, tooltip dan tombol ikut berganti.
+
+[x] 7. Scrollbar Utama Panel Library
+   - Masalah: Scrollbar `#libraryScroll` membuat seluruh panel kiri naik-turun.
+   - Perbaikan: Matikan scroll induk (`overflow:hidden`), aktifkan internal scroll di kategori terbuka.
+   - Bukti: Scroll induk tetap 0, `#frameGrid` internal scroll lancar.
+
+[x] 8. Batas Minimal Lebar Panel Library (Min-Width)
+   - Masalah: Tombol aksi terpotong saat panel ditarik sempit.
+   - Perbaikan: Terapkan `minmax(255px, var(--left-w))` pada kolom panel library.
+   - Bukti: Ditarik sempit 120px -> lebar nyata tertahan di 255px, 0 tombol terpotong.
+
+[x] 9. Grid Responsif Thumbnail Frame
+   - Behavior: Panel ditarik lebar tidak membesarkan thumbnail, tapi menambah jumlah kolom.
+   - Perbaikan: `grid-template-columns: repeat(auto-fill, var(--thumb-w))`.
+   - Bukti: Ukuran kartu tetap 96px, kolom bertambah dari 2 menjadi 3-4.
+
+[x] 10. Penyeragaman Behavior Zero-Center Slider (Slider X dan Slider Y)
+   - Behavior: Titik tengah slider X/Y = posisi netral Center di kanvas.
+   - Perbaikan: Preset simpan absolut, UI hitung selisih dari center via `measure_ink()`.
+   - Bukti: Slider 0 -> simpangan center tepat (0,0) px untuk semua elemen.
+
+[x] 11. Urutan Kategori di Panel Library (Theme di Paling Bawah)
+   - Perbaikan: Urutan accordion menjadi: Frame -> Font -> Sticker -> Theme.
+   - Bukti: Urutan DOM `['accFrame','accFont','accSticker','accTheme']`.
+
+[x] 13. Penyederhanaan Label Export Options (CRF -> Kualitas Video)
+   - Perbaikan: Ubah label "CRF" menjadi "Kualitas Video" dengan hint intuitif.
+   - Bukti: Tulisan CRF 0 kemunculan, dropdown kecepatan encode tetap.
+
+[x] 14. Penyederhanaan Opsi Text Alignment (Perataan Teks)
+   - Perbaikan: Ganti teks "Kiri/Tengah/Kanan" menjadi 3 tombol ikon SVG.
+   - Bukti: 9 tombol perataan teks berupa SVG tanpa teks label.
+
+[x] 15. Visual Switcher Ukuran Thumbnail (Thumbnail Size)
+   - Perbaikan: Tambah label "Thumbnail Size" + 2 ikon kotak visual (kecil & besar) + warna aktif.
+   - Bukti: Label dan 2 ikon kotak ada, 1 tombol aktif dengan warna aksen.
+
+[x] 16. Penghapusan Label/Teks Canvas "1080x1920" di Panel Style
+   - Bukti: Pola teks 1080x1920 mati dihapus total dari panel Style.
+
+[x] 17. Pembersihan Fitur "Hapus PNG" Redundan di Panel Style & Sticker
+   - Bukti: 0 tombol teks "Hapus PNG", penghapusan via ikon tong sampah di kartu.
+
+[x] 18. Pembersihan Tombol "Simpan Theme" Redundan di Panel Theme
+   - Bukti: Tinggal 1 tombol simpan theme utama di bar atas.
+
+[x] 19. Penyederhanaan Label Tombol Import
+   - Bukti: 3 tombol import (Frame/Font/Sticker) seragam berlabel "＋ Import".
+
+[x] 20. Visual Tombol Hapus Item
+   - Perbaikan: Ganti seluruh tombol teks 'X' dengan ikon tempat sampah merah.
+   - Bukti: 32 tombol hapus menggunakan SVG tempat sampah warna merah.
+
+================================================================================
+[RIWAYAT SPESIFIKASI ASLI 4 ITEM TERAKHIR — SUDAH SELESAI SEMUA]
+================================================================================
+
+[x] 12. Fitur Intro Cover TikTok (Thumbnail 0.3 - 0.5 Detik / Durasi Kustom)
+   - Kebutuhan: Cover thumbnail di awal video feed TikTok/Shorts, video utama jalan sejak detik 0.
+   - Perbaikan:
+     * `build_intro_cover()` di stage5_final.py menggambar SATU PNG opak seukuran kanvas:
+       latar (gambar impor cover-crop, atau gelap pekat kalau kosong) + Headline + Nama Creator.
+       Teks dipusatkan lewat `measure_ink()` — mesin yang SAMA dengan preview, jadi tidak
+       ada perhitungan kedua yang bisa berbeda.
+     * Filter ffmpeg: lapisan PALING ATAS, `fade=t=out:alpha=1` lalu
+       `overlay enable='lte(t,durasi)'`. Video & audio utama TIDAK disentuh — bukan freeze
+       frame, bukan concat, jadi durasi klip dan sinkronisasi subtitle tidak bergeser.
+     * UI: accordion "Intro Cover" di panel Style — sakelar On/Off, slider Durasi &
+       Fade out (pakai `setNf()` baru karena nilai pecahan 0.4 rusak kalau dibulatkan),
+       tombol Import gambar + ikon hapus, thumbnail 9:16, dan 2 sakelar
+       "Tampilkan headline" / "Tampilkan nama creator".
+     * Import gambar memakai dialog native `import_overlay_dialog` (sama dengan stiker)
+       supaya file BENAR-BENAR disalin ke disk. Dengan <input type=file> biasa, gambar
+       hanya ada di memori halaman -> preview benar tapi render tidak menemukan filenya.
+     * Blok `intro` masuk DEFAULT_PRESET (default OFF) + buildPreset/applyPreset, jadi
+       tersimpan di Theme dan preset lama tanpa blok ini tetap terbaca (fitur mati, bukan error).
+   - Bukti (render nyata 1 klip 137 detik):
+     * Durasi output 137.017s vs sumber 137.023s -> timeline TIDAK bergeser.
+     * Audio detik 0-0.5: mean_volume -13.5 dB -> suara sudah jalan walau layar tertutup.
+     * Frame t=0.05 -> 94% tertutup cover | t=0.30 -> 62% (fade jalan)
+       | t=0.60 & t=2.0 -> 44% (cover hilang total).
+     * `tests/test_intro_cover.py`: 12 test PASS (opak, cover-crop bukan stretch,
+       teks terpusat, tidak dibuat saat kosong, preset lama aman).
+
+[x] 21. Penyempurnaan Subtitle: Anti-Looping WhisperX + Koreksi Trilingual Gemini
+   - Panduan Lengkap: `rencana_perbaikan_subtitle.txt`
+   - Masalah: Video outdoor/bahasa daerah (Sunda) sering looping dan typo sehingga alignment rusak.
+   - Perbaikan:
+     * Model Whisper TIDAK lagi hardcode "small". AKAR MASALAHNYA: field `whisper_model`
+       ditulis DUA KALI di config.py, dan pydantic memakai definisi TERAKHIR — jadi
+       mengubah yang atas saja tidak pernah berefek. Sekarang tinggal satu, default
+       `medium`, dibaca dari WHISPER_MODEL di .env. Model medium 1.5GB akhirnya terpakai.
+     * Parameter anti-looping dipasang di Stage 1 JUGA (sebelumnya hanya Stage 4):
+       `condition_on_previous_text=False`, `no_speech_threshold=0.6`,
+       `temperature=(0.0, 0.2, 0.4)`.
+     * Prioritas sumber transkrip (poin 3 rencana): CC YouTube -> fallback ASR
+       faster-whisper -> forced alignment. Sebelumnya klip TANPA CC langsung DIGAGALKAN
+       tanpa subtitle sama sekali (`transcribe_clip_asr()` baru).
+     * Koreksi trilingual dipisah jadi `correct_text_trilingual()` dan dipakai untuk
+       KEDUA jalur (CC auto YouTube juga punya typo). Ditambah penjaga rasio: kalau
+       jumlah kata berubah di luar 0.5x-1.8x, teks ASLI yang dipakai — mencegah model
+       "terlalu rajin" memotong atau mengarang isi.
+     * Dijalankan SEBELUM forced alignment, bukan sesudah: teks bersih itulah yang
+       di-align ke audio, jadi detik per kata mengikuti kata yang benar.
+     * Docstring "Gemini: REMOVED from required pipeline" dan print "Gemini: DISABLED"
+       dibetulkan — keduanya bohong, blok Gemini memang jalan.
+   - Bukti (uji nyata lewat 9router):
+     * Input : "Bagaimana? Bagaimana? Bagaimana ibu bapak, adik, adik, ini rumahna
+                kumaha atuh euy, tong diantep wae, iya ibu bapak, iya ibu bapak, ..."
+     * Output: "Bagaimana Ibu, Bapak, Adik-adik, ini rumahna kumaha atuh euy,
+                tong diantep wae. Iya Ibu, Bapak, kita akan bantu perbaiki rumah ieu pisan."
+     * 28 -> 22 kata, looping hilang, kosakata Sunda UTUH (kumaha/atuh/euy/pisan/tong diantep).
+     * `tests/test_stage4.py`: 72 test PASS (termasuk 2 test baru untuk jalur ASR fallback).
+
+[x] 22. Penyederhanaan Panel Style (Clean UI, Slider Side-by-Side, & Divider Global)
+   - Kebutuhan: Membuat panel Style (kanan) lebih ringkas, padat, hemat tempat vertikal, dan intuitif.
+   - Perbaikan:
+     * Color Picker: slider Hue & Lightness DIBUANG, ganti 5 bulatan palet + 1 native picker.
+       Fungsi mati `setHue()`/`setLite()` ikut dihapus.
+     * Slider X & Y side-by-side 1 baris + input angka yang bisa DIKETIK MANUAL,
+       tersinkron dua arah lewat `xySync()`. Memakai class `.ctl-xy` yang stylenya
+       memang ada di p3.css — sebelumnya markup memakai class `slider-col`/`sm2` yang
+       TIDAK ADA di CSS mana pun, jadi barisnya tampil tambal sulam dengan style inline.
+     * Label teks "Font" dan "Align" dihapus, langsung dropdown & 3 tombol ikon.
+     * 1 divider per seksi memisahkan kelompok geometri/posisi dari kelompok warna/efek.
+     * Seluruh `.hint` di panel Style dibuang (headFit, subFit, wplHint, qualityHint,
+       nama file stiker). Peringatan "warna shadow = outline" TIDAK dibuang tapi
+       dipindah ke class `.warnline` merah — itu peringatan penting, bukan keterangan.
+       Keterangan "Auto: #000000" di Outline diganti bulatan warna.
+     * Kotak input teks manual Headline & Subtitle dihapus (contoh tetap di preview).
+     * Kartu Creator DIKEMBALIKAN ke panel kanan (2026-09-01). Baris lama di file ini
+       yang menulis "Hapus kartu Creator" adalah SALAH TULIS; kartu itu dipakai untuk
+       mengatur tata letak teks "Creator!" dan bentuknya kini mengikuti aturan item 22
+       yang sama dengan Headline & Subtitle.
+   - Bukti: 18/18 PASS, console_errors 0, 5 run berturut-turut stabil.
+
+[x] 23. Fitur Background Video Blur (Untuk Mode Non-Frame / Transparan)
+   - Kebutuhan: Background blur estetik khas TikTok/Shorts saat video non-frame / area frame transparan.
+   - Perbaikan:
+     * Sakelar On/Off + slider Tingkat Blur di seksi Video (slider hanya tampil saat ON).
+     * Kunci i18n `blurBg` & `blurRadius` ditambahkan ke kamus ID + EN. Sebelumnya kode
+       memakai `L('blurRadius')||'Blur Radius'` padahal kuncinya tidak ada — `L()`
+       mengembalikan NAMA KUNCI yang bernilai truthy, jadi fallback `||` tidak pernah
+       jalan dan yang tampil di panel adalah tulisan mentah "blurRadius".
+       Teks hardcode "Blur Background (Non-Frame)" juga diganti kunci i18n.
+     * Render: `boxblur` + `colorchannelmixer` 0.6 pada latar yang di-cover 9:16.
+     * PREVIEW diperbaiki jadi blur SUNGGUHAN. Sebelumnya CSS-nya hanya menggelapkan
+       latar tanpa blur sama sekali (komentar di kode mengakui "keeping it simple for
+       the layout mockup") -> preview tidak sama dengan hasil render. Sekarang
+       `.rc.blur-bg::before` memakai `filter:blur() brightness(.6)` mengikuti urutan
+       filter renderer, dan radiusnya diskalakan canvas px -> preview px lewat SX.
+     * Status & level blur tersimpan otomatis ke Theme (Preset).
+   - Bukti: toggle + slider muncul di seksi Video, tersimpan di preset, 18/18 PASS.
+
+================================================================================
+[CATATAN TEST — DIBERSIHKAN 2026-09-01]
+================================================================================
+STATUS SEKARANG: `pytest tests/` -> 367 passed, 0 failed.
+
+Sebelumnya ada 18 test gagal. SEMUANYA warisan lama yang mengunci perilaku kode yang
+sudah berubah — bukan regresi, dan bukan pertanda Clipper rusak. Bukti: 
+`.pytest_cache/v/cache/lastfailed` dari run 2026-08-31 memuat 20 test gagal, 18 di
+antaranya persis sama (2 sisanya di test_stage4, sudah diperbaiki hari ini).
+
+KEPUTUSAN (user, 2026-09-01): buang 18 FUNGSI yang gagal itu, JANGAN buang filenya.
+Alasannya: ketiga file itu juga memuat 117 test yang LULUS dan masih berguna. Menghapus
+file utuh berarti membuang 117 pengecek sehat hanya untuk menghilangkan 18 yang berisik.
+
+Yang dibuang:
+  tests/test_models.py       -> 5 test + 2 kelas (TestGeminiMock, TestStage1Integration)
+    Penyebab gagal: test me-mock `stages.stage1_curate.genai`, padahal Stage 1 sudah
+    pindah ke klien OpenAI-compatible (9router). Sasaran mock-nya tidak ada lagi.
+  tests/test_stage2.py       -> 12 test + 2 kelas (TestExistingOutputReuse,
+                                TestManifestGeneration)
+    Penyebab gagal: test mengharapkan SATU folder gabungan "Creator - Video Title",
+    sedangkan kode memakai DUA tingkat `output/<creator>/<judul<=30>/`. Struktur dua
+    tingkat inilah yang benar dan sudah dipakai semua output di disk — mengubah kode
+    ke bentuk lama akan membuat klip yang sudah diunduh tidak dikenali lagi.
+  tests/test_stage2_buffer.py -> 1 test (TestBufferInRun::test_skips_when_existing_
+                                duration_matches_buffered), penyebab sama.
+
+Cara pembuangannya (bukan regex): `tools/_prune_stale_tests.py` mem-parse file dengan
+`ast` untuk mendapat rentang baris PERSIS tiap fungsi (dekorator + docstring ikut),
+membuang barisnya, lalu MEMVERIFIKASI hasilnya masih Python yang sah sebelum menulis.
+Kelas yang isinya habis ikut dibuang karena kelas tanpa isi = SyntaxError.
+Cadangan file asli: `temp/_backup_tests/`.
+
+Sisa hal kecil yang TIDAK dikerjakan: beberapa import di ketiga file itu kini tidak
+terpakai lagi (mis. `MagicMock`, `stage1_run`, `_clip_overlaps` di test_models).
+Dibiarkan karena tidak menyebabkan error dan membersihkannya berisiko tanpa manfaat.
+
+================================================================================
+[PERBAIKAN INFRASTRUKTUR TEST — 2026-09-01]
+================================================================================
+[x] P2.10 tidak lagi FLAKY.
+   - Gejala: kadang PASS kadang FAIL tanpa perubahan kode.
+   - Akar masalah: DUA hal sekaligus.
+     1. Selektor mencari `.slider-col` yang tidak ada, lalu jatuh ke `.row` dan
+        menghitung slider yang salah.
+     2. Menunggu lapisan teks dengan tenggat TETAP 2 detik. Lapisan digambar asinkron
+        oleh Python; kalau belum sampai, `_ink` masih kosong dan hasilnya FAIL walau
+        UI-nya benar.
+   - Perbaikan: baca `.ctl-xy`/`.xy-label`, dan baca ULANG sampai ketiga blok teks
+     punya kotak tinta (maks 12 x 500ms). Field diagnostik `slider_xy_count`,
+     `ink_wait_attempts`, `ink_missing` ditambahkan ke hasil.
+   - Bukti: 5 run berturut-turut SEMUA PASS, console_errors 0.
+
+[x] Versi WhisperX di manifest tidak lagi selalu "unknown".
+   - Akar masalah: kode mencoba `import whisperx` padahal paket itu ada di
+     `.whisperx-venv`, bukan `.venv` yang menjalankan Stage 4 — import selalu gagal.
+   - Perbaikan: baca METADATA paket saja (`importlib.metadata.version`), tanpa import.
+
+================================================================================
