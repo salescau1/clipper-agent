@@ -1,314 +1,277 @@
 ================================================================================
-DAFTAR ITEM PEKERJAAN CLIPPER AGENT (DIBAGI BERDASARKAN STATUS)
+DAFTAR ITEM PEKERJAAN CLIPPER AGENT (Untuk Eksekusi Claude)
 ================================================================================
-Update terakhir: 2026-09-01
-Status verifikasi UI: 18/18 PASS di `tools/verify_customize_ui.py`, console_errors: 0.
-Status test suite : 367 passed | 0 failed. (18 test warisan lama yang mengunci perilaku
-                    kode lama sudah dibuang — lihat [CATATAN TEST] di bawah.)
-Status Stage 4    : DIUJI END-TO-END dengan klip nyata 137s — SRT 292 entri, koreksi
-                    trilingual "success", nol looping. 4 bug ditemukan & diperbaiki,
-                    lihat [PERBAIKAN STAGE 4 SUBTITLE] di bawah.
-Rekap Progres     : 23 Selesai | 0 Terbuka
+Update terakhir: 2026-09-03 01:10
+Catatan        : Item 1-23 SELESAI & terverifikasi.
+Status UI      : 18/18 PASS di tools/verify_customize_ui.py
+Status Test    : 374 passed | 0 failed  (diukur 2026-09-02, bukan dikutip)
 
-================================================================================
-[SELESAI / SUDAH DICEKLIS (23 ITEM)]
-================================================================================
+CARA PAKAI FILE INI
+  - Nomor baris di bawah sudah DIVERIFIKASI ke kode 2026-09-02..03. Kalau tidak cocok
+    saat dieksekusi, kodenya sudah berubah -> baca ulang, jangan asal patch.
+  - Bagian "JANGAN" di tiap tiket bukan saran. Itu bug yang sudah pernah terjadi.
+  - Uji Stage 4 dari `.whisperx-venv`, BUKAN `.venv`. pytest jalan di `.venv` dan tidak
+    akan pernah menangkap bug jalur produksi Stage 4.
 
-[x] 1. Frame Tidak Muncul di Panel Preview Tengah
-   - Masalah: Frame ter-load di library, tapi preview tengah kosong saat diklik.
-   - Perbaikan: Menggunakan helper `frameUrl(f)` di j5.js untuk bridge `list_frames()`.
-   - Bukti: `.frameimg` src valid, naturalWidth 400.
-
-[x] 2. Teks Nama Kreator (Watermark) Tidak Muncul di Panel Preview
-   - Masalah: Opsi Kreator aktif tapi teks tidak muncul di canvas tengah.
-   - Perbaikan: Memberi fallback default contoh "CREATOR" jika data kurasi kosong.
-   - Bukti: `.wmlayer` src valid, naturalWidth 1080.
-
-[x] 3. Visual Toggle Switch On/Off di Panel Style Tidak Merespons
-   - Masalah: Logika jalan tapi kenop/warna sakelar tidak berubah saat diklik.
-   - Perbaikan: Mengembalikan fungsi `scheduleAutoApply()` di j2.js agar handler tidak macet.
-   - Bukti: Class `on` dan `backgroundColor` berubah real-time saat diklik.
-
-[x] 4. Rasio & Bentuk Thumbnail Frame Terdistorsi (Gepeng/Melar)
-   - Masalah: Thumbnail gepeng/melar saat panel library di-resize.
-   - Perbaikan: Set tinggi kartu eksplisit (`--thumb-h`) dan `background-size:contain`.
-   - Bukti: Lebar panel 200px vs 420px -> rasio kartu tetap 0.556 fixed.
-
-[x] 5. Pinch-to-Zoom Gesture Me-Zoom Seluruh UI Aplikasi
-   - Masalah: Gesture touchpad / ctrl+wheel me-zoom seluruh jendela aplikasi.
-   - Perbaikan: Pasang listener `wheel` non-passive (`initZoomGesture()` di j6.js) khusus kanvas preview.
-   - Bukti: Zoom preview bekerja mulus, UI luar preview tidak ter-zoom.
-
-[x] 6. Penyelarasan Bahasa UI (EN / ID Switch) 100%
-   - Masalah: Sebagian tombol/tooltip tidak ikut berubah bahasa.
-   - Perbaikan: Kamus i18n menyeluruh + kanal ketiga `data-i18n-title`.
-   - Bukti: 20 kunci data-i18n lengkap id + en, tooltip dan tombol ikut berganti.
-
-[x] 7. Scrollbar Utama Panel Library
-   - Masalah: Scrollbar `#libraryScroll` membuat seluruh panel kiri naik-turun.
-   - Perbaikan: Matikan scroll induk (`overflow:hidden`), aktifkan internal scroll di kategori terbuka.
-   - Bukti: Scroll induk tetap 0, `#frameGrid` internal scroll lancar.
-
-[x] 8. Batas Minimal Lebar Panel Library (Min-Width)
-   - Masalah: Tombol aksi terpotong saat panel ditarik sempit.
-   - Perbaikan: Terapkan `minmax(255px, var(--left-w))` pada kolom panel library.
-   - Bukti: Ditarik sempit 120px -> lebar nyata tertahan di 255px, 0 tombol terpotong.
-
-[x] 9. Grid Responsif Thumbnail Frame
-   - Behavior: Panel ditarik lebar tidak membesarkan thumbnail, tapi menambah jumlah kolom.
-   - Perbaikan: `grid-template-columns: repeat(auto-fill, var(--thumb-w))`.
-   - Bukti: Ukuran kartu tetap 96px, kolom bertambah dari 2 menjadi 3-4.
-
-[x] 10. Penyeragaman Behavior Zero-Center Slider (Slider X dan Slider Y)
-   - Behavior: Titik tengah slider X/Y = posisi netral Center di kanvas.
-   - Perbaikan: Preset simpan absolut, UI hitung selisih dari center via `measure_ink()`.
-   - Bukti: Slider 0 -> simpangan center tepat (0,0) px untuk semua elemen.
-
-[x] 11. Urutan Kategori di Panel Library (Theme di Paling Bawah)
-   - Perbaikan: Urutan accordion menjadi: Frame -> Font -> Sticker -> Theme.
-   - Bukti: Urutan DOM `['accFrame','accFont','accSticker','accTheme']`.
-
-[x] 13. Penyederhanaan Label Export Options (CRF -> Kualitas Video)
-   - Perbaikan: Ubah label "CRF" menjadi "Kualitas Video" dengan hint intuitif.
-   - Bukti: Tulisan CRF 0 kemunculan, dropdown kecepatan encode tetap.
-
-[x] 14. Penyederhanaan Opsi Text Alignment (Perataan Teks)
-   - Perbaikan: Ganti teks "Kiri/Tengah/Kanan" menjadi 3 tombol ikon SVG.
-   - Bukti: 9 tombol perataan teks berupa SVG tanpa teks label.
-
-[x] 15. Visual Switcher Ukuran Thumbnail (Thumbnail Size)
-   - Perbaikan: Tambah label "Thumbnail Size" + 2 ikon kotak visual (kecil & besar) + warna aktif.
-   - Bukti: Label dan 2 ikon kotak ada, 1 tombol aktif dengan warna aksen.
-
-[x] 16. Penghapusan Label/Teks Canvas "1080x1920" di Panel Style
-   - Bukti: Pola teks 1080x1920 mati dihapus total dari panel Style.
-
-[x] 17. Pembersihan Fitur "Hapus PNG" Redundan di Panel Style & Sticker
-   - Bukti: 0 tombol teks "Hapus PNG", penghapusan via ikon tong sampah di kartu.
-
-[x] 18. Pembersihan Tombol "Simpan Theme" Redundan di Panel Theme
-   - Bukti: Tinggal 1 tombol simpan theme utama di bar atas.
-
-[x] 19. Penyederhanaan Label Tombol Import
-   - Bukti: 3 tombol import (Frame/Font/Sticker) seragam berlabel "＋ Import".
-
-[x] 20. Visual Tombol Hapus Item
-   - Perbaikan: Ganti seluruh tombol teks 'X' dengan ikon tempat sampah merah.
-   - Bukti: 32 tombol hapus menggunakan SVG tempat sampah warna merah.
+KEPUTUSAN YANG SUDAH DIKUNCI USER (2026-09-03)
+  A. Koreksi trilingual Gemini TETAP DIPAKAI. initial_prompt + VAD ditambahkan sebagai
+     lapisan lokal di depannya, bukan penggantinya. (Item 24)
+  B. Pilihan "Draf Customize (belum disimpan)" DIBUANG dari dropdown tema. Tab Run hanya
+     menjalankan Theme yang tersimpan. (Item 25)
+  C. Jumlah klip jadi RENTANG PENCARIAN Min-Max, bukan satu angka. (Item 27)
+     MIN = ambang kebutuhan user, MAX = batas atas pencarian Gemini.
+     MIN TIDAK DIJAMIN — kalau hasil kurang dari MIN, pipeline LANJUT dengan peringatan
+     jelas berapa yang didapat vs diminta. Tidak stop, tidak retry otomatis.
 
 ================================================================================
-[RIWAYAT SPESIFIKASI ASLI 4 ITEM TERAKHIR — SUDAH SELESAI SEMUA]
+[TIKET TERBUKA (OPEN TICKETS)]
 ================================================================================
 
-[x] 12. Fitur Intro Cover TikTok (Thumbnail 0.3 - 0.5 Detik / Durasi Kustom)
-   - Kebutuhan: Cover thumbnail di awal video feed TikTok/Shorts, video utama jalan sejak detik 0.
-   - Perbaikan:
-     * `build_intro_cover()` di stage5_final.py menggambar SATU PNG opak seukuran kanvas:
-       latar (gambar impor cover-crop, atau gelap pekat kalau kosong) + Headline + Nama Creator.
-       Teks dipusatkan lewat `measure_ink()` — mesin yang SAMA dengan preview, jadi tidak
-       ada perhitungan kedua yang bisa berbeda.
-     * Filter ffmpeg: lapisan PALING ATAS, `fade=t=out:alpha=1` lalu
-       `overlay enable='lte(t,durasi)'`. Video & audio utama TIDAK disentuh — bukan freeze
-       frame, bukan concat, jadi durasi klip dan sinkronisasi subtitle tidak bergeser.
-     * UI: accordion "Intro Cover" di panel Style — sakelar On/Off, slider Durasi &
-       Fade out (pakai `setNf()` baru karena nilai pecahan 0.4 rusak kalau dibulatkan),
-       tombol Import gambar + ikon hapus, thumbnail 9:16, dan 2 sakelar
-       "Tampilkan headline" / "Tampilkan nama creator".
-     * Import gambar memakai dialog native `import_overlay_dialog` (sama dengan stiker)
-       supaya file BENAR-BENAR disalin ke disk. Dengan <input type=file> biasa, gambar
-       hanya ada di memori halaman -> preview benar tapi render tidak menemukan filenya.
-     * Blok `intro` masuk DEFAULT_PRESET (default OFF) + buildPreset/applyPreset, jadi
-       tersimpan di Theme dan preset lama tanpa blok ini tetap terbaca (fitur mati, bukan error).
-   - Bukti (render nyata 1 klip 137 detik):
-     * Durasi output 137.017s vs sumber 137.023s -> timeline TIDAK bergeser.
-     * Audio detik 0-0.5: mean_volume -13.5 dB -> suara sudah jalan walau layar tertutup.
-     * Frame t=0.05 -> 94% tertutup cover | t=0.30 -> 62% (fade jalan)
-       | t=0.60 & t=2.0 -> 44% (cover hilang total).
-     * `tests/test_intro_cover.py`: 12 test PASS (opak, cover-crop bukan stretch,
-       teks terpusat, tidak dibuat saat kosong, preset lama aman).
+[ ] ITEM 24: Preferred Languages (Trilingual) + Anti-Looping WhisperX
+--------------------------------------------------------------------------------
+1. Masalah & Tujuan (WHY):
+   - WhisperX membawa 99+ bahasa, jadi rawan salah tebak saat mendengar bahasa daerah
+     (video KDM dominan Sunda+Indo pernah disangka Spanyol/Tagalog).
+   - Tujuan: sempitkan ruang tebak ke bahasa yang user pilih, dan potong looping kata
+     macet + teks gaib DI SISI LOKAL supaya beban koreksi Gemini turun.
+   - Gemini TIDAK dibuang (keputusan A). `correct_text_trilingual()` sudah terpasang di
+     kedua jalur (stage4_subtitles.py:1231 dan :1736) dan itu yang membuat Item 21 lulus.
+     Kalau dibuang, satu-satunya penjaga looping yang terbukti ikut hilang.
 
-[x] 21. Penyempurnaan Subtitle: Anti-Looping WhisperX + Koreksi Trilingual Gemini
-   - Panduan Lengkap: `rencana_perbaikan_subtitle.txt`
-   - Masalah: Video outdoor/bahasa daerah (Sunda) sering looping dan typo sehingga alignment rusak.
-   - Perbaikan:
-     * Model Whisper TIDAK lagi hardcode "small". AKAR MASALAHNYA: field `whisper_model`
-       ditulis DUA KALI di config.py, dan pydantic memakai definisi TERAKHIR — jadi
-       mengubah yang atas saja tidak pernah berefek. Sekarang tinggal satu, default
-       `medium`, dibaca dari WHISPER_MODEL di .env. Model medium 1.5GB akhirnya terpakai.
-     * Parameter anti-looping dipasang di Stage 1 JUGA (sebelumnya hanya Stage 4):
-       `condition_on_previous_text=False`, `no_speech_threshold=0.6`,
-       `temperature=(0.0, 0.2, 0.4)`.
-     * Prioritas sumber transkrip (poin 3 rencana): CC YouTube -> fallback ASR
-       faster-whisper -> forced alignment. Sebelumnya klip TANPA CC langsung DIGAGALKAN
-       tanpa subtitle sama sekali (`transcribe_clip_asr()` baru).
-     * Koreksi trilingual dipisah jadi `correct_text_trilingual()` dan dipakai untuk
-       KEDUA jalur (CC auto YouTube juga punya typo). Ditambah penjaga rasio: kalau
-       jumlah kata berubah di luar 0.5x-1.8x, teks ASLI yang dipakai — mencegah model
-       "terlalu rajin" memotong atau mengarang isi.
-     * Dijalankan SEBELUM forced alignment, bukan sesudah: teks bersih itulah yang
-       di-align ke audio, jadi detik per kata mengikuti kata yang benar.
-     * Docstring "Gemini: REMOVED from required pipeline" dan print "Gemini: DISABLED"
-       dibetulkan — keduanya bohong, blok Gemini memang jalan.
-   - Bukti (uji nyata lewat 9router):
-     * Input : "Bagaimana? Bagaimana? Bagaimana ibu bapak, adik, adik, ini rumahna
-                kumaha atuh euy, tong diantep wae, iya ibu bapak, iya ibu bapak, ..."
-     * Output: "Bagaimana Ibu, Bapak, Adik-adik, ini rumahna kumaha atuh euy,
-                tong diantep wae. Iya Ibu, Bapak, kita akan bantu perbaiki rumah ieu pisan."
-     * 28 -> 22 kata, looping hilang, kosakata Sunda UTUH (kumaha/atuh/euy/pisan/tong diantep).
-     * `tests/test_stage4.py`: 72 test PASS (termasuk 2 test baru untuk jalur ASR fallback).
+2. Perilaku UI di Tab Run (WHAT):
+   - Lokasi: Kartu Utama Run, Baris 2, tepat di bawah baris URL.
+     `Preferred Languages:  ENGLISH [ ]   INDONESIA [v]   SUNDANESE [v]`
+     * ENGLISH   default OFF (dicentang untuk video review gadget/tech)
+     * INDONESIA default ON
+     * SUNDANESE default ON
+   - Saat 'Jalankan' diklik, centang diteruskan sebagai `--lang-tags id,su`.
+   - Minimal satu bahasa wajib tercentang. Kalau user mengosongkan semuanya, kembalikan
+     ke `id` dan beri tanda di UI — jangan kirim `--lang-tags` kosong.
 
-[x] 22. Penyederhanaan Panel Style (Clean UI, Slider Side-by-Side, & Divider Global)
-   - Kebutuhan: Membuat panel Style (kanan) lebih ringkas, padat, hemat tempat vertikal, dan intuitif.
-   - Perbaikan:
-     * Color Picker: slider Hue & Lightness DIBUANG, ganti 5 bulatan palet + 1 native picker.
-       Fungsi mati `setHue()`/`setLite()` ikut dihapus.
-     * Slider X & Y side-by-side 1 baris + input angka yang bisa DIKETIK MANUAL,
-       tersinkron dua arah lewat `xySync()`. Memakai class `.ctl-xy` yang stylenya
-       memang ada di p3.css — sebelumnya markup memakai class `slider-col`/`sm2` yang
-       TIDAK ADA di CSS mana pun, jadi barisnya tampil tambal sulam dengan style inline.
-     * Label teks "Font" dan "Align" dihapus, langsung dropdown & 3 tombol ikon.
-     * 1 divider per seksi memisahkan kelompok geometri/posisi dari kelompok warna/efek.
-     * Seluruh `.hint` di panel Style dibuang (headFit, subFit, wplHint, qualityHint,
-       nama file stiker). Peringatan "warna shadow = outline" TIDAK dibuang tapi
-       dipindah ke class `.warnline` merah — itu peringatan penting, bukan keterangan.
-       Keterangan "Auto: #000000" di Outline diganti bulatan warna.
-     * Kotak input teks manual Headline & Subtitle dihapus (contoh tetap di preview).
-     * Kartu Creator DIKEMBALIKAN ke panel kanan (2026-09-01). Baris lama di file ini
-       yang menulis "Hapus kartu Creator" adalah SALAH TULIS; kartu itu dipakai untuk
-       mengatur tata letak teks "Creator!" dan bentuknya kini mengikuti aturan item 22
-       yang sama dengan Headline & Subtitle.
-   - Bukti: 18/18 PASS, console_errors 0, 5 run berturut-turut stabil.
+3. Logika Backend (HOW):
+   File: `stages/stage4_subtitles.py`, `stages/stage4_batch.py`, `main.py`, `config.py`.
 
-[x] 23. Fitur Background Video Blur (Untuk Mode Non-Frame / Transparan)
-   - Kebutuhan: Background blur estetik khas TikTok/Shorts saat video non-frame / area frame transparan.
-   - Perbaikan:
-     * Sakelar On/Off + slider Tingkat Blur di seksi Video (slider hanya tampil saat ON).
-     * Kunci i18n `blurBg` & `blurRadius` ditambahkan ke kamus ID + EN. Sebelumnya kode
-       memakai `L('blurRadius')||'Blur Radius'` padahal kuncinya tidak ada — `L()`
-       mengembalikan NAMA KUNCI yang bernilai truthy, jadi fallback `||` tidak pernah
-       jalan dan yang tampil di panel adalah tulisan mentah "blurRadius".
-       Teks hardcode "Blur Background (Non-Frame)" juga diganti kunci i18n.
-     * Render: `boxblur` + `colorchannelmixer` 0.6 pada latar yang di-cover 9:16.
-     * PREVIEW diperbaiki jadi blur SUNGGUHAN. Sebelumnya CSS-nya hanya menggelapkan
-       latar tanpa blur sama sekali (komentar di kode mengakui "keeping it simple for
-       the layout mockup") -> preview tidak sama dengan hasil render. Sekarang
-       `.rc.blur-bg::before` memakai `filter:blur() brightness(.6)` mengikuti urutan
-       filter renderer, dan radiusnya diskalakan canvas px -> preview px lewat SX.
-     * Status & level blur tersimpan otomatis ke Theme (Preset).
-   - Bukti: toggle + slider muncul di seksi Video, tersimpan di preset, 18/18 PASS.
+   3a. initial_prompt dinamis (SATU-SATUNYA tempat centang bahasa berpengaruh):
+       * SUNDANESE aktif -> kumaha, atuh, euy, punten, naha, pisan, da, maneh, barudak,
+         abah, sare, hayu, nuhun, lur, akang, teteh
+       * ENGLISH aktif   -> gadget, review, worth it, podcast, creator, gaming, frame, setup
+       * INDONESIA aktif -> percakapan santai umum
+       Diumpankan ke `model.transcribe(..., initial_prompt=...)`.
+
+   3b. PASANG VAD (bukan "pastikan aktif" — sekarang belum aktif sama sekali):
+       Terukur 2026-09-02: kode memanggil `WhisperModel(...)` langsung
+       (stage4_subtitles.py:520 dan :1696), BUKAN `whisperx.load_model` yang membawa
+       Silero-VAD, dan `vad_filter` default False di faster-whisper. Jadi ini pekerjaan
+       MENAMBAH, bukan menyetel.
+
+   3c. `condition_on_previous_text = False` -> SUDAH ADA, jangan dikerjakan lagi.
+       Terpasang di stage1_curate.py:233, stage4_subtitles.py:525 dan :1701.
+
+4. JANGAN: centang bahasa TIDAK BOLEH masuk parameter `language=`
+   Diukur langsung di `.whisperx-venv` (2026-09-02):
+     DEFAULT_ALIGN_MODELS_TORCH 5 + DEFAULT_ALIGN_MODELS_HF 36 = 41 bahasa beralignment.
+     `id` -> cahya/wav2vec2-large-xlsr-indonesian   ADA
+     `en` -> WAV2VEC2_ASR_BASE_960H                 ADA
+     `su` -> TIDAK ADA.  `jv` -> TIDAK ADA.
+   Kalau `su` diteruskan ke `language=`, forced alignment MATI -> timestamp per kata
+   hilang -> SRT 1-kata/entri hancur -> kerapatan Theme 1/3/5 kata kehilangan fondasinya.
+   `language` TETAP "id". Centang bahasa hanya merakit initial_prompt (3a).
+
+5. Target File:
+   - `clipper_gui.py`            checkbox + pengiriman `--lang-tags`
+   - `main.py`                   terima `--lang-tags`, teruskan ke _stage4_batch
+   - `stages/stage4_batch.py`    teruskan argumen ke subprocess .whisperx-venv
+   - `stages/stage4_subtitles.py` initial_prompt + VAD
+   - `config.py`                 default bahasa
+
+6. Verifikasi (WAJIB dari .whisperx-venv):
+   `.whisperx-venv/Scripts/python.exe stages/stage4_batch.py --manifest <path> --lang-tags id,su`
+   Cek: SRT tetap 1 kata/entri, jumlah kata ter-align > 0 dengan unaligned 0, nol looping.
+   pytest di `.venv` TIDAK cukup untuk tiket ini.
+
 
 ================================================================================
-[CATATAN TEST — DIBERSIHKAN 2026-09-01]
-================================================================================
-STATUS SEKARANG: `pytest tests/` -> 367 passed, 0 failed.
+[ ] ITEM 25: Hapus Total Autosave Draf di Tab Customize
+--------------------------------------------------------------------------------
+1. Masalah & Tujuan (WHY):
+   - Customize untuk mendesain & bereksperimen. Penulisan disk tiap 600ms saat slider
+     digeser tidak berguna, membebani disk, dan rawan glitch.
+   - Render di tab Run HANYA memakai Theme yang disimpan secara sadar (keputusan B).
 
-Sebelumnya ada 18 test gagal. SEMUANYA warisan lama yang mengunci perilaku kode yang
-sudah berubah — bukan regresi, dan bukan pertanda Clipper rusak. Bukti: 
-`.pytest_cache/v/cache/lastfailed` dari run 2026-08-31 memuat 20 test gagal, 18 di
-antaranya persis sama (2 sisanya di test_stage4, sudah diperbaiki hari ini).
+2. Spesifikasi Teknis (WHAT & HOW):
+   2a. Nama & lokasi yang BENAR (versi tiket lama salah semua):
+       * Fungsi autosave = `scheduleAutoApply()` di `sketches/clipper-ui-mockup/src/j2.js:147`
+         (hasil build ada di index.html:697). BUKAN j1.js / j5.js.
+       * Yang dipanggilnya = `B.save_preset` -> Slot `save_preset` di clipper_gui.py:293
+         -> `_write_preset()` :282 menulis `assets/presets/render_preset.active.json`.
+         Slot `PresetBridge.save_active_preset()` TIDAK ADA — jangan dicari.
+       * Simpan Theme = `save_preset_as` (clipper_gui.py:707) dan `overwrite_theme` (:725).
+         Slot `PresetBridge.save_theme()` TIDAK ADA.
+       * Theme tersimpan di `assets/presets/library/<id>.json` (preset_library.py:29).
+         Folder `themes/` TIDAK ADA.
+   2b. `scheduleAutoApply()` dijadikan NO-OP berkomentar, JANGAN DIHAPUS.
+       `syncAll()` memanggilnya di baris TERAKHIR (j2.js:133). Menghapus fungsinya melempar
+       ReferenceError yang menghentikan sisa handler -> sakelar ON/OFF, warna, dan align
+       tampak "tidak merespons". Kelas bug ini sudah pernah terjadi.
+   2c. Buang item "Draf Customize (belum disimpan)" dari dropdown tema
+       (`gui_review.py:825`, `reload_themes()`), dan perbarui tooltip di :776-779 yang
+       masih menjelaskan draf.
+       Alasan: item itu mengirim `--preset` KOSONG, lalu `stage5_final.resolve_preset_path()`
+       (:116) jatuh ke `render_preset.active.json` (:113) — file yang hanya ditulis autosave
+       yang sedang dibuang. Dibiarkan, isinya jadi draf beku tanpa pemberitahuan.
+   2d. Preview canvas tetap realtime in-memory. Tulis ke disk HANYA saat 'Simpan Theme'.
 
-KEPUTUSAN (user, 2026-09-01): buang 18 FUNGSI yang gagal itu, JANGAN buang filenya.
-Alasannya: ketiga file itu juga memuat 117 test yang LULUS dan masih berguna. Menghapus
-file utuh berarti membuang 117 pengecek sehat hanya untuk menghilangkan 18 yang berisik.
+3. JANGAN hapus Slot `active_preset` (clipper_gui.py:762) dan `loadActivePreset()`
+   (j5.js:235). Itu yang memuat keadaan terakhir saat Customize dibuka, plus penjaga
+   `_booting`. Tanpa itu halaman selalu mulai dari default mockup.
+   Setelah autosave mati, `render_preset.active.json` menjadi hasil 'Simpan Theme'
+   terakhir + boot state, bukan lagi target tulis otomatis.
 
-Yang dibuang:
-  tests/test_models.py       -> 5 test + 2 kelas (TestGeminiMock, TestStage1Integration)
-    Penyebab gagal: test me-mock `stages.stage1_curate.genai`, padahal Stage 1 sudah
-    pindah ke klien OpenAI-compatible (9router). Sasaran mock-nya tidak ada lagi.
-  tests/test_stage2.py       -> 12 test + 2 kelas (TestExistingOutputReuse,
-                                TestManifestGeneration)
-    Penyebab gagal: test mengharapkan SATU folder gabungan "Creator - Video Title",
-    sedangkan kode memakai DUA tingkat `output/<creator>/<judul<=30>/`. Struktur dua
-    tingkat inilah yang benar dan sudah dipakai semua output di disk — mengubah kode
-    ke bentuk lama akan membuat klip yang sudah diunduh tidak dikenali lagi.
-  tests/test_stage2_buffer.py -> 1 test (TestBufferInRun::test_skips_when_existing_
-                                duration_matches_buffered), penyebab sama.
+4. Target File:
+   - `sketches/clipper-ui-mockup/src/j2.js`  (no-op)
+   - `sketches/clipper-ui-mockup/build.py`   (rebuild index.html)
+   - `gui_review.py`                         (buang item draf + tooltip)
+   - `clipper_gui.py`                        (bersihkan bridge kalau perlu)
 
-Cara pembuangannya (bukan regex): `tools/_prune_stale_tests.py` mem-parse file dengan
-`ast` untuk mendapat rentang baris PERSIS tiap fungsi (dekorator + docstring ikut),
-membuang barisnya, lalu MEMVERIFIKASI hasilnya masih Python yang sah sebelum menulis.
-Kelas yang isinya habis ikut dibuang karena kelas tanpa isi = SyntaxError.
-Cadangan file asli: `temp/_backup_tests/`.
+5. Verifikasi: buka Customize, geser slider 30 detik, pastikan mtime
+   `assets/presets/render_preset.active.json` TIDAK berubah. Lalu 'Simpan Theme' ->
+   file baru muncul di `assets/presets/library/`. Cek `window.__errs` kosong.
 
-Sisa hal kecil yang TIDAK dikerjakan: beberapa import di ketiga file itu kini tidak
-terpakai lagi (mis. `MagicMock`, `stage1_run`, `_clip_overlaps` di test_models).
-Dibiarkan karena tidak menyebabkan error dan membersihkannya berisiko tanpa manfaat.
-
-================================================================================
-[PERBAIKAN STAGE 4 SUBTITLE — 2026-09-01, DITEMUKAN SAAT UJI END-TO-END]
-================================================================================
-Konteks: Item 21 sebelumnya dinyatakan selesai, TAPI pengujiannya dilakukan dari
-`.venv`. Stage 4 sebenarnya dijalankan oleh `.whisperx-venv` sebagai subprocess
-(main.py::_stage4_batch baris 151). Menguji di venv yang salah membuat tiga bug
-lolos. Ketiganya ditemukan dan diperbaiki hari ini lewat render SRT sungguhan.
-
-[x] S4.1 `openai` tidak terpasang di `.whisperx-venv`.
-   - Gejala: koreksi trilingual selalu gagal senyap; status "failed: No module
-     named 'openai'". Subtitle tetap keluar, pipeline tidak crash, tapi looping
-     dan typo TIDAK PERNAH dibersihkan. Fitur praktis mati.
-   - Perbaikan: `openai 3.6.0` dipasang ke `.whisperx-venv`.
-     Dry-run dulu: 8 paket DITAMBAH (openai, httpx2, httpcore2, anyio, h11,
-     jiter, sniffio, truststore), NOL paket ditimpa. whisperx 3.8.6,
-     faster-whisper 1.2.1, dan torch 2.8.0+cpu diverifikasi tetap sehat.
-
-[x] S4.2 `.env` tidak pernah dibaca di jalur `.whisperx-venv`.
-   - Gejala: `os.getenv("GEMINI_API_KEY")` selalu None -> koreksi dilewati
-     dengan status "not_configured". Ini bug KEDUA yang menutupi bug pertama:
-     walau `openai` sudah dipasang, koreksi tetap tidak jalan.
-   - Akar masalah: pydantic-settings di config.py membaca .env ke objek
-     `settings`, TIDAK ke `os.environ`. Tidak ada satu pun `load_dotenv()` di
-     jalur itu.
-   - Perbaikan: `load_dotenv(_PROJECT_ROOT / ".env")` di awal
-     `correct_text_trilingual()` (hanya kalau env var belum ada) dan sebelum
-     header CLI dicetak, supaya baris "Gemini: ON/OFF" di log tidak menipu.
-
-[x] S4.3 `KeyError: 'start'` — WhisperX 3.8.x menolak segmen tanpa start/end.
-   - Gejala: Stage 4 CRASH total di tahap forced alignment. Ini bug paling
-     serius: bukan gagal senyap, tapi seluruh Stage 4 mati.
-   - Akar masalah: kode mengirim `[{"text": ...}]` saja. whisperx 3.8.6 membaca
-     `segment["start"]` langsung di alignment.py:210 tanpa `.get()`.
-   - Perbaikan: segmen kini menyertakan `start: 0.0` dan
-     `end: len(audio)/16000.0` (SAMPLE_RATE whisperx = 16000). Diperbaiki di
-     DUA tempat: `_run_whisperx_alignment()` (dipakai run()) dan `_run_cli()`.
-
-[x] S4.4 Logika koreksi trilingual terduplikasi ~60 baris.
-   - `_run_cli()` punya salinan sendiri: prompt, pemilihan model, penanganan
-     error ditulis dua kali. Akibatnya perbaikan S4.2 tidak akan sampai ke
-     jalur CLI. Sekarang keduanya memanggil `correct_text_trilingual()`.
-
-BUKTI UJI NYATA (bukan mock), klip 137 detik dari output/AD_REVIEW:
-  Model              : faster-whisper medium (bukan small)
-  Koreksi trilingual : success
-  Kata ter-align     : 292, unaligned 0
-  Entri SRT          : 292, entri terakhir 00:02:16,784 (< durasi 137,02s)
-  Looping di SRT     : nol (dicek kata berulang 3x berturut)
-  Kosakata Sunda     : kumaha, damang, atuh, euy, pisan, sadayana, tong diantep
-                       SEMUA lolos tanpa diterjemahkan
-  Jalur run()        : transcribe_clip_whisperx() 18/18 kata ter-align, fallback 0
-
-CATATAN: SRT berisi 1 kata per entri. Itu SENGAJA — `subtitle_target_words = 1`
-di config.py baris 81, supaya Stage 4 menulis sehalus mungkin sekali saja dan
-theme bisa mengatur pengelompokan tanpa menjalankan Stage 4 ulang (~2 menit/klip).
 
 ================================================================================
-[PERBAIKAN INFRASTRUKTUR TEST — 2026-09-01]
+[ ] ITEM 26: Bersihkan Header Judul Panel Redundan & Hint Contoh URL di Tab Run
+--------------------------------------------------------------------------------
+1. Masalah & Tujuan (WHY):
+   - Sidebar kiri tab Run sudah punya nav (Jalankan/Review/Progres/Hasil) dengan indikator
+     aktif. Judul panel di atas halaman hanya mengulangnya dan makan ruang vertikal.
+   - Hint "Contoh: https://www.youtube.com/watch?v=..." redundan, placeholder sudah jelas.
+
+2. Spesifikasi Teknis (WHAT & HOW):
+   Widget yang dibuang:
+     * clipper_gui.py:1216  `title = QLabel(self.RUN_PANELS[0])` -> disimpan di `self._tr_title` :1218
+     * clipper_gui.py:1250  hint URL -> disimpan di `self._tr_hint`
+     * clipper_gui.py:1296  judul panel Review
+     * clipper_gui.py:1324  judul panel Progres
+     * clipper_gui.py:1398  judul panel Hasil -> `self._tr_res`
+   Layout langsung mulai dari kartu pertama, margin atas rapi.
+
+3. JANGAN tinggalkan `retranslate()` menunjuk widget yang sudah dihapus:
+   `retranslate()` (clipper_gui.py:1884) memanggil `self._tr_title.setText()` di :1887,
+   `self._tr_hint` di :1890, `self._tr_res` di :1892 — dan SELURUH blok dibungkus
+   `except Exception: pass` di :1919. Jadi menghapus widgetnya TIDAK crash; yang terjadi
+   lebih buruk: AttributeError ditelan diam-diam dan semua terjemahan SESUDAHNYA (URL,
+   paste, progres, hasil, nav, kartu stage, tombol Jalankan) berhenti bekerja tanpa satu
+   pun pesan error. Hapus juga barisnya di `retranslate()` dalam edit yang SAMA.
+   `RUN_PANELS` (:1043) TETAP dipakai sidebar (:1145) dan badge Review (:1178-1181) —
+   jangan dihapus konstantanya.
+
+4. Target File: `clipper_gui.py`
+
+5. Verifikasi: ganti bahasa EN <-> ID setelah perubahan, pastikan SEMUA teks tab Run ikut
+   berubah (bukan hanya beberapa yang pertama). Itu tes sebenarnya untuk tiket ini.
+
+
 ================================================================================
-[x] P2.10 tidak lagi FLAKY.
-   - Gejala: kadang PASS kadang FAIL tanpa perubahan kode.
-   - Akar masalah: DUA hal sekaligus.
-     1. Selektor mencari `.slider-col` yang tidak ada, lalu jatuh ke `.row` dan
-        menghitung slider yang salah.
-     2. Menunggu lapisan teks dengan tenggat TETAP 2 detik. Lapisan digambar asinkron
-        oleh Python; kalau belum sampai, `_ink` masih kosong dan hasilnya FAIL walau
-        UI-nya benar.
-   - Perbaikan: baca `.ctl-xy`/`.xy-label`, dan baca ULANG sampai ketiga blok teks
-     punya kotak tinta (maks 12 x 500ms). Field diagnostik `slider_xy_count`,
-     `ink_wait_attempts`, `ink_missing` ditambahkan ke hasil.
-   - Bukti: 5 run berturut-turut SEMUA PASS, console_errors 0.
+[ ] ITEM 27: Kartu Run Sejajar + Rentang Jumlah Klip Min-Max + Fix Spinbox Mental
+--------------------------------------------------------------------------------
+1. Layout Kartu Utama Run (WHAT):
+   * Baris 1: URL YouTube + tombol Paste
+   * Baris 2: `Preferred Languages: ENGLISH [ ] INDONESIA [v] SUNDANESE [v]`   (Item 24)
+   * Baris 3: 3 kelompok SEJAJAR HORIZONTAL dipisah pembatas vertikal:
+       - Kiri   : Toggle `[Auto] [Manual]` + ikon (?) tooltip alur
+       - Tengah : `Klip: [6] - [10]`
+       - Kanan  : `Durasi: [60]s - [240]s`
+   Tulis satuan `s` pada durasi supaya dua pasang Min-Max tidak tertukar saat dibaca.
 
-[x] Versi WhisperX di manifest tidak lagi selalu "unknown".
-   - Akar masalah: kode mencoba `import whisperx` padahal paket itu ada di
-     `.whisperx-venv`, bukan `.venv` yang menjalankan Stage 4 — import selalu gagal.
-   - Perbaikan: baca METADATA paket saja (`importlib.metadata.version`), tanpa import.
+2. Jumlah Klip jadi RENTANG PENCARIAN (keputusan C):
+   Kebutuhan user: "minimal 6 klip tapi cari sampai 10". Sekarang hanya ada satu angka
+   (`self.count`, gui_review.py:718, range 1-40).
+   * MAX = jumlah yang DIMINTA ke Gemini. Semua yang sekarang memakai `target_count`
+     memakai MAX: prompt (stage1_curate.py:341 & :350), pengambilan hasil
+     (`valid_clips[:target_count]` :633), dan `max_tokens` (:484).
+   * MIN = ambang PERINGATAN saja. Ganti pembanding di stage1_curate.py:636 dari MAX ke
+     MIN, dan bunyikan peringatan yang menyebut angka: dapat N, minimal diminta M.
+   * MIN TIDAK DIJAMIN dan jangan pernah ditulis seolah dijamin. Yield Gemini tidak bisa
+     dipaksa, dan filter overlap 50% di `validate_and_normalize_clips()` masih memotong
+     lagi setelahnya. Hasil kurang dari MIN -> LANJUT, jangan stop, jangan retry otomatis
+     (retry membuang 1 dari 20 request/hari DAN menimpa file kurasi berisi pilihan review).
+   * CLI: `--count` (= MAX) dipertahankan supaya jalur lama tidak pecah, tambah
+     `--min-count`. Kirim keduanya dari GUI (clipper_gui.py:2338 dan :2346).
 
+3. Cek kapasitas SEBELUM request dikirim:
+   maks klip = durasi_video / durasi_minimal. Jadi MIN 6 klip @ 60s butuh video >= 6 menit.
+   Kalau `durasi // durasi_min < MIN`, peringatkan DULU sebelum memanggil Gemini —
+   lebih murah daripada user menunggu request yang mustahil berhasil.
+   Teks hint kapasitas yang sudah ada (gui_review.py:790, diisi `_sync()` :838) diperbarui
+   supaya memakai MIN dan MAX klip, bukan satu angka.
+
+4. Fix angka mental — penyebabnya BUKAN QSpinBox:
+   Tiket lama menuduh Qt memaksa `min <= max`. Salah. Itu kode sendiri:
+   `CurationSettings._sync()` (gui_review.py:838) berisi
+       `if self.max_sec.value() <= self.min_sec.value(): self.max_sec.setValue(min+10)`
+   dan tersambung ke `valueChanged` (:795-796), jadi jalan di SETIAP ketikan. Mengetik
+   "120" di Max: begitu digit "1" masuk, 1 <= 60 -> dipaksa jadi 70.
+   Solusi (validasi visual non-blocking):
+   * Buang pemaksaan nilai dari `_sync()`. Kotak bebas diketik.
+   * Kalau `Max < Min` -> kotak Max merah: `border: 1px solid #e06c75; background: #2a1518;`
+     dan tombol 'Jalankan' dinonaktifkan sampai valid.
+   * Berlaku untuk DUA pasang: Klip Max>=Min DAN Durasi Max>=Min.
+
+5. JANGAN biarkan dua tempat saling menimpa keadaan tombol Jalankan:
+   `_set_running_ui()` (clipper_gui.py:2219) menulis `self.run_btn.setEnabled(not running)`
+   TANPA SYARAT di :2226. Jadi tombol yang dinonaktifkan karena Max<Min akan HIDUP LAGI
+   setiap proses selesai. Buat satu fungsi penentu tunggal (mis. `_refresh_run_enabled()`)
+   yang menggabungkan "tidak sedang berjalan" AND "input valid", dan panggil itu dari
+   kedua jalur. Jangan menulis `setEnabled` langsung di dua tempat.
+
+6. Target File: `clipper_gui.py`, `gui_review.py`, `main.py`, `stages/stage1_curate.py`
+
+7. Verifikasi tanpa membuang request Gemini: uji `_build_gemini_prompt()` dan
+   `validate_and_normalize_clips()` langsung (lihat pola di
+   references/curation-clip-count-and-duration.md), plus uji ketik "120" di Max dan
+   pastikan angkanya tidak mental.
+
+
+================================================================================
+[ ] ITEM 28: Kartu 'SETELAN' -> 'THEMES' + Preview 9:16 + Badge 'Applied'
+--------------------------------------------------------------------------------
+1. Masalah & Tujuan (WHY):
+   - Judul 'SETELAN' kaku; fungsinya memilih gaya visual output.
+   - User perlu melihat tema aktif, bukan menebak dari nama teks.
+
+2. Spesifikasi (WHAT):
+   * Ganti judul kartu 'SETELAN' -> 'THEMES'  (clipper_gui.py:1264)
+   * Dropdown pemilih tema: sudah ada (`theme_box`, gui_review.py:774), sumbernya
+     `preset_library.list_presets()` dari `assets/presets/library/*.json`.
+   * Kotak Preview 9:16 MURNI proporsional & lega (mis. 200x356), border rounded.
+     Menampilkan visual asli tema: frame, watermark, posisi teks.
+   * Badge `[v APPLIED]` hijau solid di tengah/atas kotak preview:
+     background #1b382b; color #2ecc71; bold; border-radius 4px; padding 4px 10px.
+
+3. HOW — preview harus dirakit, tidak ada gambar siap pakai:
+   `preset_library._summary()` (:50) hanya menyimpan canvas/ratio/frame_id/subtitle_font/
+   animation/words_per_line — TIDAK ada thumbnail. Yang punya `thumbnail.png` 240x426
+   adalah `frame_library` (THUMB_W=240 :34, `thumbnail_path` :247).
+   Jadi susun preview dari: thumbnail frame (lewat `frame_id` di ringkasan preset) +
+   lapisan teks dari Slot `render_text_layers` (clipper_gui.py:455) yang sudah ada.
+   Kalau frame_id kosong/tidak ditemukan, tampilkan kotak 9:16 kosong dengan keterangan
+   apa adanya.
+
+4. JANGAN bikin kotak hiasan. Aturan proyek: kontrol/tampilan yang KELIHATAN berfungsi
+   tapi tidak, adalah bug — bukan placeholder. Badge 'APPLIED' harus mencerminkan tema
+   yang BENAR-BENAR akan dipakai render (isi `theme_box.currentData()`), bukan label mati.
+   Ingat juga Item 25 membuang item "Draf Customize", jadi tidak ada lagi keadaan
+   "applied tapi tanpa file" yang perlu digambar.
+
+5. Target File: `clipper_gui.py`, `gui_review.py`
+
+6. Verifikasi: ganti tema di dropdown -> preview & badge berubah; jalankan render 1 klip
+   dan pastikan gaya hasilnya sama dengan yang tampil di preview kartu.
+
+================================================================================
+CATATAN KEBERSIHAN REPO (bukan tiket, tapi kerjakan dulu)
+================================================================================
+`git status` 2026-09-03: 13 berkas kotor. `assets/presets/library/roll-b.json` TERHAPUS,
+`roll-b-2.json` & `roll-b-3.json` belum di-track. Artinya belum ada titik balik bersih
+sebelum Item 24-28 dikerjakan. Commit dulu sebelum eksekusi.
 ================================================================================
