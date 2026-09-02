@@ -42,13 +42,24 @@ def run(
     stage: int | None = typer.Option(None, "--stage", "-s", help="Run specific stage (1-4)."),
     preset: Path | None = typer.Option(None, "--preset", help="Path ke render_preset.json untuk Stage 5 (opsional)."),
     count: int | None = typer.Option(
-        None, "--count", "-n", help="Jumlah klip yang diminta (TARGET, bukan jaminan)."),
+        None, "--count", "-n",
+        help="MAX klip: jumlah yang DIMINTA ke Gemini (TARGET, bukan jaminan)."),
+    min_count: int | None = typer.Option(
+        None, "--min-count",
+        help="MIN klip: ambang PERINGATAN saja, BUKAN jaminan. Kalau hasil kurang dari "
+             "nilai ini, pipeline TETAP LANJUT dengan peringatan berangka."),
     min_seconds: int | None = typer.Option(
         None, "--min-sec", help="Durasi klip minimal (detik)."),
     max_seconds: int | None = typer.Option(
         None, "--max-sec", help="Durasi klip maksimal (detik)."),
     target_words: int | None = typer.Option(
         None, "--target-words", help="Kata per baris subtitle di SRT (1 atau 3)."),
+    lang_tags: str | None = typer.Option(
+        None, "--lang-tags",
+        help="Tag bahasa dipisah koma untuk initial_prompt WhisperX, mis. 'id,su' atau "
+             "'id,su,en'. Default 'id'. HANYA memengaruhi initial_prompt: parameter "
+             "language= transkripsi TETAP 'id' karena whisperx tidak punya model "
+             "forced-alignment untuk 'su'."),
 ) -> None:
     """Run the full pipeline or a specific stage."""
     _bootstrap()
@@ -56,8 +67,8 @@ def run(
     # Keep explicit single-stage commands unchanged.
     if stage == 1:
         from stages import stage1_curate
-        stage1_curate.run(url, target_count=count, min_seconds=min_seconds,
-                          max_seconds=max_seconds)
+        stage1_curate.run(url, target_count=count, min_count=min_count,
+                          min_seconds=min_seconds, max_seconds=max_seconds)
         return
 
     if stage == 2:
@@ -72,7 +83,7 @@ def run(
 
     if stage == 4:
         from stages import stage4_subtitles
-        stage4_subtitles.run()
+        stage4_subtitles.run(lang_tags=lang_tags)
         return
 
     # Full pipeline:
@@ -83,8 +94,8 @@ def run(
     print("Stage 1 -> Stage 2 -> SKIP Stage 3 -> Stage 4 WhisperX -> Stage 5\n")
 
     print(">>> STAGE 1: CURATION")
-    stage1_curate.run(url, target_count=count, min_seconds=min_seconds,
-                      max_seconds=max_seconds)
+    stage1_curate.run(url, target_count=count, min_count=min_count,
+                      min_seconds=min_seconds, max_seconds=max_seconds)
 
     print("\n>>> STAGE 2: DOWNLOAD")
     stage2_download.run()
@@ -125,7 +136,7 @@ def run(
 
     print("\n>>> STAGE 4: WHISPERX SUBTITLES")
     print(f"Manifest: {manifest}")
-    _stage4_batch(manifest, target_words=target_words)
+    _stage4_batch(manifest, target_words=target_words, lang_tags=lang_tags)
 
     print("\n>>> STAGE 5: FINAL COMPOSITION")
     from stages import stage5_final
@@ -140,7 +151,11 @@ def run(
     print("Output: final/<creator>/<title>/")
 
 
-def _stage4_batch(manifest: Path, target_words: int | None = None) -> None:
+def _stage4_batch(
+    manifest: Path,
+    target_words: int | None = None,
+    lang_tags: str | None = None,
+) -> None:
     """Jalankan Stage 4 di venv WhisperX yang terpisah.
 
     Diambil dari `run()` supaya jalur Auto (full pipeline) dan jalur Manual
@@ -159,6 +174,12 @@ def _stage4_batch(manifest: Path, target_words: int | None = None) -> None:
     cmd = [str(whisperx_python), str(batch_script), "--manifest", str(manifest)]
     if target_words:
         cmd += ["--target-words", str(int(target_words))]
+    # Tag bahasa (Item 24). Dibersihkan dulu: daftar kosong / hanya koma TIDAK
+    # diteruskan — stage4_subtitles punya default "id" sendiri, dan mengirim nilai
+    # kosong akan membuat semua tag terbuang tanpa jejak di log.
+    tags = ",".join(t.strip() for t in (lang_tags or "").split(",") if t.strip())
+    if tags:
+        cmd += ["--lang-tags", tags]
 
     result = subprocess.run(cmd, cwd=str(project_root))
     if result.returncode != 0:
@@ -170,8 +191,15 @@ def stage1(
     url: str = typer.Option(..., "--url", "-u", help="Source YouTube URL."),
     count: int | None = typer.Option(
         None, "--count", "-n",
-        help="Jumlah klip yang diminta. Ini TARGET, bukan jaminan: Gemini bisa "
-             "mengembalikan lebih sedikit dan kandidat bertumpuk dibuang validator.",
+        help="MAX klip: jumlah yang DIMINTA ke Gemini. Ini TARGET, bukan jaminan: "
+             "Gemini bisa mengembalikan lebih sedikit dan kandidat bertumpuk dibuang "
+             "validator.",
+    ),
+    min_count: int | None = typer.Option(
+        None, "--min-count",
+        help="MIN klip: ambang PERINGATAN saja, BUKAN jaminan. Hasil kurang dari "
+             "nilai ini TIDAK menghentikan pipeline dan TIDAK memicu retry otomatis; "
+             "hanya memunculkan peringatan berangka (dapat N, minimal diminta M).",
     ),
     min_seconds: int | None = typer.Option(
         None, "--min-sec",
@@ -186,7 +214,11 @@ def stage1(
     from stages import stage1_curate
 
     stage1_curate.run(
-        url, target_count=count, min_seconds=min_seconds, max_seconds=max_seconds
+        url,
+        target_count=count,
+        min_count=min_count,
+        min_seconds=min_seconds,
+        max_seconds=max_seconds,
     )
 
 
@@ -203,6 +235,13 @@ def continue_from(
         None, "--target-words",
         help="Kata per baris subtitle di SRT (1 atau 3). Default 3. Stage 5 bisa "
              "memecah lebih halus saat render, tapi TIDAK bisa menggabungkan kembali.",
+    ),
+    lang_tags: str | None = typer.Option(
+        None, "--lang-tags",
+        help="Tag bahasa dipisah koma untuk initial_prompt WhisperX, mis. 'id,su' atau "
+             "'id,su,en'. Default 'id'. HANYA memengaruhi initial_prompt: parameter "
+             "language= transkripsi TETAP 'id' karena whisperx tidak punya model "
+             "forced-alignment untuk 'su'.",
     ),
     force: bool = typer.Option(False, "--force", help="Ulang walau hasil sudah ada."),
 ) -> None:
@@ -237,7 +276,7 @@ def continue_from(
 
     print("\n>>> STAGE 4: WHISPERX SUBTITLES")
     print(f"Manifest: {manifest}")
-    _stage4_batch(manifest, target_words=target_words)
+    _stage4_batch(manifest, target_words=target_words, lang_tags=lang_tags)
 
     print("\n>>> STAGE 5: FINAL COMPOSITION")
     from stages import stage5_final
@@ -298,6 +337,12 @@ def stage4(
     video_id: str | None = typer.Option(None, "--video-id", help="YouTube video ID. If not provided, uses latest manifest."),
     manifest_path: Path | None = typer.Option(None, "--manifest-path", help="Explicit path to Stage 2 manifest JSON."),
     force: bool = typer.Option(False, "--force", help="Force re-transcription even if cache exists."),
+    lang_tags: str | None = typer.Option(
+        None, "--lang-tags",
+        help="Tag bahasa dipisah koma untuk initial_prompt WhisperX, mis. 'id,su'. "
+             "Default 'id'. HANYA memengaruhi initial_prompt: parameter language= "
+             "transkripsi TETAP 'id'.",
+    ),
 ) -> None:
     """Run Stage 4: generate smart subtitles."""
     _bootstrap()
@@ -308,7 +353,9 @@ def stage4(
     if resolved_manifest is None and video_id:
         resolved_manifest = stage4_subtitles.find_stage2_manifest(video_id)
 
-    stage4_subtitles.run(manifest_path=resolved_manifest, force=force)
+    stage4_subtitles.run(
+        manifest_path=resolved_manifest, force=force, lang_tags=lang_tags
+    )
 
 
 @app.command()

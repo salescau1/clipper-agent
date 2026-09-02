@@ -1,7 +1,6 @@
 /* ============ i18n ============ */
 const I18N={
  id:{random:"Random",saveTheme:"Simpan theme",
-  saving:"Menyimpan draf...",saved:"Draf tersimpan · simpan sebagai Theme untuk dipakai tab Run",
   library:"Library",frames:"Frame",themes:"Theme",style:"Style",safeArea:"Safe area",
   adjustment:"Adjustment",output:"Output",
   inputAdjustment:"Input Adjustment",output916:"Output",
@@ -45,7 +44,6 @@ const I18N={
   fontCount:" font",builtin:"bawaan",none:"Tidak ada",pop:"Pop",fade:"Fade",up:"Naik",
   wordAnim:"Per kata",karaoke:"Karaoke",failed:"Gagal: ",randomized:"Gaya diacak"},
  en:{random:"Random",saveTheme:"Save theme",
-  saving:"Saving draft...",saved:"Draft saved · save as a Theme to use it in the Run tab",
   library:"Library",frames:"Frames",themes:"Themes",style:"Style",safeArea:"Safe area",
   adjustment:"Adjustment",output:"Output",
   inputAdjustment:"Input Adjustment",output916:"Output",

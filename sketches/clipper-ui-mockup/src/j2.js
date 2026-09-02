@@ -127,34 +127,30 @@ function syncAll(){
  V('--icop',(+S.png.opacity).toFixed(3));
  document.querySelectorAll('.rc .ic').forEach(e=>e.classList.toggle('empty',!S.png.on));
  requestTextLayers();
- // Tombol "Terapkan" sudah dibuang: preset aktif ditulis otomatis (debounce) supaya
- // tab Run selalu memakai gaya yang sedang dilihat user. `_booting` mencegah
- // penulisan balik saat preset baru saja DIMUAT dari disk.
+ // Autosave draf SUDAH DIBUANG (Item 25): syncAll() hanya menyegarkan preview di memori.
+ // Pemanggilan di bawah dibiarkan supaya alur kode tidak berubah — fungsinya no-op.
+ // `_booting` tetap dipakai loadActivePreset() (j5.js) saat preset aktif dimuat dari disk.
  if(!_booting)scheduleAutoApply();
 }
 
-/* ====== AUTOSAVE DRAF PRESET (debounce 600ms) ======
-   Fungsi ini pernah HILANG dari mockup (dibuang tanpa sengaja saat perombakan UI).
-   Akibatnya `syncAll()` melempar ReferenceError di baris terakhirnya, sehingga SEMUA
-   kode yang dipanggil sesudah syncAll() di dalam handler yang sama tidak pernah jalan —
-   `buildInspector()` di toggleB/setColor/setAlign tidak dieksekusi, jadi sakelar ON/OFF
-   dan tombol pilihan tampak "tidak merespons" walau state-nya sudah berubah. Satu
-   fungsi hilang = beberapa laporan bug sekaligus.
+/* ====== AUTOSAVE DRAF PRESET: DIMATIKAN TOTAL (Item 25) ======
+   Dulu fungsi ini men-debounce 600ms lalu memanggil `B.save_preset(...)`, yang menulis
+   `assets/presets/render_preset.active.json` setiap kali slider digeser. Penulisan disk
+   itu tidak berguna (Customize memang untuk bereksperimen), membebani disk, dan rawan
+   glitch. Sekarang preview tetap realtime DI MEMORI dan disk HANYA ditulis saat user
+   sadar menekan 'Simpan theme' (`save_preset_as` / `overwrite_theme` di j6.js).
 
-   ATURAN: autosave TIDAK boleh memicu efek tingkat aplikasi (mis. pindah tab). Ia
-   dijalankan puluhan kali per menit saat slider digeser. */
-let _apTimer=null;
-function scheduleAutoApply(){
- if(!(B&&B.save_preset))return;
- const st=$('applyState'); if(st)st.textContent=L('saving');
- if(_apTimer)clearTimeout(_apTimer);
- _apTimer=setTimeout(()=>{
-  _apTimer=null;
-  try{B.save_preset(JSON.stringify(buildPreset()))}
-  catch(e){if(st)st.textContent=L('failed')+e;return}
-  if(st)st.textContent=L('saved');
- },600);
-}
+   FUNGSINYA SENGAJA DIBIARKAN ADA SEBAGAI NO-OP — JANGAN DIHAPUS:
+   `syncAll()` memanggilnya di baris TERAKHIR-nya. Fungsi ini pernah hilang dari mockup
+   dan akibatnya `syncAll()` melempar ReferenceError di situ, sehingga SEMUA kode sesudah
+   syncAll() di dalam handler yang sama tidak pernah jalan — `buildInspector()` di
+   toggleB/setColor/setAlign tidak dieksekusi, jadi sakelar ON/OFF, pemilihan warna, dan
+   tombol perataan tampak "tidak merespons" walau state-nya sudah berubah. Satu fungsi
+   hilang = beberapa laporan bug sekaligus.
+
+   Elemen status `#applyState` dibiarkan KOSONG: tidak ada lagi draf yang disimpan, jadi
+   jangan pernah menulis "Menyimpan draf..." / "Draf tersimpan" ke sana. */
+function scheduleAutoApply(){/* no-op — autosave draf dibuang, lihat komentar di atas */}
 
 /* ====== LAPISAN TEKS: digambar stages/text_engine.py (mesin yang sama dgn render) ======
    Preview TIDAK menggambar teks apa pun dengan CSS — subtitle, headline, dan watermark

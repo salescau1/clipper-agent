@@ -560,8 +560,17 @@ def validate_and_normalize_clips(
     target_count: int,
     min_seconds: int = _MIN_CLIP_SECONDS,
     max_seconds: int = _MAX_CLIP_SECONDS,
+    min_count: int | None = None,
 ) -> list[ClipCandidate]:
-    """Validate, normalize, deduplicate, and rank clip candidates."""
+    """Validate, normalize, deduplicate, and rank clip candidates.
+
+    Args:
+        target_count: MAX klip — batas atas pengambilan hasil (`valid_clips[:MAX]`).
+        min_count: MIN klip — ambang PERINGATAN saja (Item 27). None = ikut MAX
+            (perilaku lama). Hasil kurang dari MIN TIDAK menghentikan pipeline dan
+            TIDAK memicu retry: yield Gemini tidak bisa dipaksa, dan filter overlap
+            50% di fungsi ini masih memotong lagi sesudah Gemini menjawab.
+    """
     logger.info("Validating %d clip candidates...", len(candidates))
 
     valid_clips: list[tuple[float, float, ClipCandidate]] = []
@@ -628,15 +637,25 @@ def validate_and_normalize_clips(
         valid_clips.append((start_sec, end_sec, clip))
         seen_ranges.append((start_sec, end_sec))
 
-    # Sort by score descending, then take up to target_count
+    # Sort by score descending, then take up to MAX (target_count).
+    # Pengambilan hasil memakai MAX, BUKAN MIN: kalau Gemini mengembalikan lebih
+    # banyak dari MIN, klip ekstranya tetap berguna untuk dipilih user di Review.
     valid_clips.sort(key=lambda x: x[2].score, reverse=True)
     selected = valid_clips[:target_count]
     selected.sort(key=lambda x: x[0])  # Re-sort by start time for output
 
-    if len(selected) < target_count:
+    # Pembanding peringatan memakai MIN (Item 27), bukan MAX. MAX adalah batas atas
+    # pencarian — mendapat 7 dari 10 yang diminta itu normal dan bukan masalah.
+    # Yang perlu diberitahukan ke user hanyalah kalau hasilnya di bawah kebutuhan
+    # minimalnya. MIN TIDAK DIJAMIN: pipeline tetap LANJUT, tanpa retry otomatis
+    # (retry membuang 1 dari 20 request/hari Gemini DAN menimpa file kurasi yang
+    # memuat pilihan review user).
+    ambang_min = target_count if min_count is None else int(min_count)
+    if len(selected) < ambang_min:
         logger.warning(
-            "Only %d valid clips found (requested %d). Returning available clips.",
-            len(selected), target_count,
+            "Hanya dapat %d klip valid, minimal diminta %d (maks pencarian %d). "
+            "Pipeline LANJUT dengan klip yang ada — MIN tidak dijamin.",
+            len(selected), ambang_min, target_count,
         )
 
     logger.info("Validated %d clips after filtering %d candidates", len(selected), len(candidates))
@@ -653,20 +672,40 @@ def run(
     target_count: int | None = None,
     min_seconds: int | None = None,
     max_seconds: int | None = None,
+    min_count: int | None = None,
 ) -> None:
     """Run Stage 1: curate clips from a YouTube video.
 
     Args:
         url: Source YouTube URL.
-        target_count: Number of clips to curate. Defaults to config value.
+        target_count: MAX klip — jumlah yang DIMINTA ke Gemini. Defaults to config
+            value. Ini yang dipakai prompt, pengambilan hasil, dan perhitungan
+            `max_tokens` jawaban.
         min_seconds: Durasi klip minimal. Ini penentu utama berapa banyak klip yang
             MUNGKIN dihasilkan (maks teoretis = durasi video / min_seconds).
         max_seconds: Durasi klip maksimal.
+        min_count: MIN klip — ambang PERINGATAN saja (Item 27, keputusan user C).
+            BUKAN jaminan: hasil kurang dari MIN tetap LANJUT dengan peringatan
+            berangka, tanpa stop dan tanpa retry otomatis. Default = MAX (perilaku
+            lama sebelum Item 27).
     """
     setup_logging()
     ensure_dirs()
 
+    # MAX = batas atas pencarian, MIN = ambang peringatan. Keduanya dijepit supaya
+    # MIN tidak pernah melebihi MAX — MIN > MAX akan membuat peringatan menyala
+    # walaupun Gemini sudah memberi sebanyak yang mungkin diminta.
     count = target_count or settings.target_clip_count
+    min_klip = min_count or settings.min_clip_count or count
+    min_klip = max(1, int(min_klip))
+    if min_klip > count:
+        logger.warning(
+            "MIN klip (%d) lebih besar dari MAX (%d) — MIN diturunkan ke %d. "
+            "MAX adalah jumlah yang diminta ke Gemini, jadi MIN di atasnya mustahil.",
+            min_klip, count, count,
+        )
+        min_klip = count
+
     lo = int(min_seconds or settings.clip_min_seconds)
     hi = int(max_seconds or settings.clip_max_seconds)
     if lo < 5:
@@ -676,7 +715,10 @@ def run(
 
     logger.info("=" * 60)
     logger.info("[1/5] STAGE 1: CURATE CLIPS")
-    logger.info("URL: %s | Target clips: %d | Durasi klip: %d-%ds", url, count, lo, hi)
+    logger.info(
+        "URL: %s | Klip: min %d - maks %d (MIN tidak dijamin) | Durasi klip: %d-%ds",
+        url, min_klip, count, lo, hi,
+    )
     logger.info("=" * 60)
 
     # Step 1: Video metadata
@@ -713,21 +755,37 @@ def run(
     # Peringatan sebelum request dikirim: kalau video terlalu pendek untuk jumlah klip
     # yang diminta, mustahil terpenuhi. Lebih baik user tahu SEKARANG daripada mengira
     # hasilnya bug setelah menunggu request selesai.
+    #
+    # Kapasitas teoretis = durasi_video / durasi_minimal. MIN 6 klip @ 60s butuh video
+    # minimal 6 menit. Dua ambang diperiksa terpisah:
+    #   - di bawah MIN  = peringatan keras, kebutuhan user mustahil dipenuhi.
+    #   - di bawah MAX  = catatan info saja, MAX cuma batas atas pencarian.
     if video_duration > 0:
         maks_teoretis = int(video_duration // lo)
-        if maks_teoretis < count:
+        if maks_teoretis < min_klip:
             logger.warning(
-                "Video %s hanya bisa memuat maksimal %d klip @ %ds (diminta %d). "
-                "Turunkan durasi minimal atau kurangi jumlah klip.",
-                format_time(video_duration), maks_teoretis, lo, count,
+                "KAPASITAS KURANG: video %s hanya bisa memuat maksimal %d klip @ %ds, "
+                "sedangkan MIN yang diminta %d. Turunkan durasi minimal klip atau "
+                "kurangi MIN. Request tetap dikirim, tapi MIN mustahil terpenuhi.",
+                format_time(video_duration), maks_teoretis, lo, min_klip,
+            )
+        elif maks_teoretis < count:
+            logger.info(
+                "Kapasitas video %s = %d klip @ %ds, di bawah MAX %d. MIN %d masih "
+                "mungkin terpenuhi.",
+                format_time(video_duration), maks_teoretis, lo, count, min_klip,
             )
 
+    # MAX dikirim ke Gemini (prompt + max_tokens). PENTING: max_tokens dihitung dari
+    # MAX di dalam curate_with_gemini(); kalau dihitung dari MIN sementara Gemini
+    # menjawab sebanyak MAX, JSON-nya terpotong di tengah objek dan errornya berbunyi
+    # "Failed to parse Gemini response" tanpa menyebut soal panjang.
     gemini_candidates = curate_with_gemini(transcript_text, count, video_duration, lo, hi)
 
     # Step 4: Validate clips
     logger.info("[4/5] Validating clip candidates...")
     validated_clips = validate_and_normalize_clips(
-        gemini_candidates, video_duration, count, lo, hi
+        gemini_candidates, video_duration, count, lo, hi, min_count=min_klip
     )
 
     if not validated_clips:
@@ -765,7 +823,18 @@ def run(
     logger.info("=" * 60)
     logger.info("[v] STAGE 1 COMPLETE")
     logger.info("Saved: %s", output_path)
-    logger.info("Clips curated: %d / %d requested", len(validated_clips), count)
+    logger.info(
+        "Clips curated: %d (min diminta %d, maks pencarian %d)",
+        len(validated_clips), min_klip, count,
+    )
+    if len(validated_clips) < min_klip:
+        logger.warning(
+            "Hasil %d klip di bawah MIN %d. Ini TIDAK dianggap gagal: MIN adalah "
+            "ambang kebutuhan, bukan jaminan. Tidak ada retry otomatis — jalankan "
+            "ulang manual kalau memang perlu (ingat: 20 request/hari dan file kurasi "
+            "akan tertimpa).",
+            len(validated_clips), min_klip,
+        )
     for clip in validated_clips:
         logger.info(
             "  Clip %d: %s [%s -> %s] (%.1fs) score=%.2f",

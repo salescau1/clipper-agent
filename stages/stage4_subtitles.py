@@ -241,6 +241,172 @@ if settings is not None:
 
 
 # ---------------------------------------------------------------------------
+# Item 24: Preferred Languages (trilingual) + anti-looping
+# ---------------------------------------------------------------------------
+#
+# LARANGAN KERAS — tag bahasa di sini TIDAK BOLEH masuk parameter `language=`.
+#
+# Diukur langsung di `.whisperx-venv` (2026-09-02): whisperx hanya punya 41 bahasa
+# dengan model forced-alignment (DEFAULT_ALIGN_MODELS_TORCH 5 + DEFAULT_ALIGN_MODELS_HF
+# 36). `id` ADA (cahya/wav2vec2-large-xlsr-indonesian), `en` ADA, tetapi `su` (Sunda)
+# TIDAK ADA dan `jv` (Jawa) TIDAK ADA.
+#
+# Kalau `su` diteruskan ke `language=`:
+#   forced alignment MATI -> timestamp per kata hilang -> SRT 1-kata-per-entri hancur
+#   -> kerapatan subtitle 1/3/5 kata di Theme kehilangan fondasinya.
+#
+# Jadi bahasa transkripsi & alignment TETAP `_ALIGNMENT_LANGUAGE` ("id"). Tag bahasa
+# HANYA dipakai untuk merakit `initial_prompt` — itu satu-satunya tempat centang
+# bahasa berpengaruh. Jangan "merapikan" ini dengan meneruskan tag ke language=.
+_ALIGNMENT_LANGUAGE = "id"
+
+# Tag default kalau tidak ada yang diberikan. JANGAN pernah memakai daftar kosong:
+# initial_prompt kosong mengembalikan perilaku lama (rawan salah tebak bahasa).
+_DEFAULT_LANG_TAGS: tuple[str, ...] = ("id",)
+
+# Kosakata per tag. Diambil apa adanya dari bug.txt Item 24 poin 3a — jangan dikarang
+# sendiri: daftar ini yang menahan salah dengar kosakata Sunda dan istilah tech.
+_LANG_PROMPT_VOCAB: dict[str, str] = {
+    "su": (
+        "kumaha, atuh, euy, punten, naha, pisan, da, maneh, barudak, abah, sare, "
+        "hayu, nuhun, lur, akang, teteh"
+    ),
+    "en": (
+        "gadget, review, worth it, podcast, creator, gaming, frame, setup"
+    ),
+    "id": (
+        "percakapan santai umum"
+    ),
+}
+
+# Klausa per tag untuk merangkai initial_prompt sebagai KALIMAT, bukan daftar kata
+# telanjang. Diukur 2026-09-03 pada klip uji 25s (GEMINI_API_KEY dikosongkan supaya
+# koreksi Gemini tidak mengaburkan hasil):
+#   gaya daftar  "Transkrip percakapan campuran. Bahasa Sunda: kumaha, atuh, ..."
+#       -> 42 kata, DAN muncul fragmen ganda di akhir: segmen "...4,1 juta."
+#          disusul segmen baru "7 juta." (angka yang sama diucapkan sekali).
+#   gaya kalimat "Ini transkrip percakapan santai berbahasa Indonesia yang
+#                 bercampur Bahasa Sunda seperti kumaha, atuh, ..."
+#       -> 40 kata, fragmen "7 juta." HILANG.
+# Whisper memakai initial_prompt sebagai konteks kalimat SEBELUMNYA, jadi bentuk
+# prosa lebih menyerupai data latihnya daripada daftar berlabel. Jangan diubah
+# kembali ke gaya "Label: kata, kata" tanpa mengukur ulang.
+_LANG_PROMPT_CLAUSE: dict[str, str] = {
+    "id": "berbahasa Indonesia",
+    "su": "bercampur Bahasa Sunda seperti " + _LANG_PROMPT_VOCAB["su"],
+}
+
+# `en` ditulis sebagai kalimat terpisah supaya rangkaiannya tetap enak dibaca saat
+# tiga tag aktif sekaligus (kalau digabung dengan " yang ", daftar kosakata Sunda
+# dan Inggris menempel tanpa jeda).
+_LANG_PROMPT_EXTRA: dict[str, str] = {
+    "en": "Ada juga istilah Inggris seperti " + _LANG_PROMPT_VOCAB["en"] + ".",
+}
+
+# Urutan tetap supaya prompt yang dihasilkan deterministik (mudah diuji & dibaca log),
+# tidak tergantung urutan centang di UI.
+_LANG_PROMPT_ORDER: tuple[str, ...] = ("id", "su", "en")
+
+# Default tag bahasa saat CLI tidak mengirim `--lang-tags`. Dibaca dari settings
+# (SUBTITLE_LANG_TAGS di .env) kalau config bisa diimpor; kalau tidak, jatuh ke
+# `_DEFAULT_LANG_TAGS`. Nilainya dinormalkan di bawah setelah parse_lang_tags ada.
+_LANG_TAGS_DEFAULT_RAW: list[str] = list(_DEFAULT_LANG_TAGS)
+if settings is not None:
+    try:
+        _LANG_TAGS_DEFAULT_RAW = list(settings.subtitle_lang_tags)
+    except AttributeError:
+        # Config lama tanpa field ini — biarkan default ["id"].
+        pass
+
+
+def parse_lang_tags(raw: str | list[str] | tuple[str, ...] | None) -> list[str]:
+    """Normalkan `--lang-tags` menjadi daftar tag yang valid dan unik.
+
+    Terima "id,su", ["id", "su"], atau None. Tag yang tidak dikenali dibuang.
+    Daftar kosong SELALU jatuh ke `_DEFAULT_LANG_TAGS` (["id"]) — Item 24 poin 2:
+    jangan pernah meneruskan daftar kosong ke bawah.
+    """
+    if raw is None:
+        items: list[str] = []
+    elif isinstance(raw, str):
+        items = raw.split(",")
+    else:
+        items = list(raw)
+
+    tags: list[str] = []
+    for item in items:
+        tag = str(item).strip().lower()
+        if not tag:
+            continue
+        if tag not in _LANG_PROMPT_VOCAB:
+            _log_info("Tag bahasa '%s' tidak dikenali — dilewati.", tag)
+            continue
+        if tag not in tags:
+            tags.append(tag)
+
+    if not tags:
+        return list(_DEFAULT_LANG_TAGS)
+    # Urutkan mengikuti _LANG_PROMPT_ORDER supaya prompt deterministik.
+    return [t for t in _LANG_PROMPT_ORDER if t in tags]
+
+
+def build_initial_prompt(
+    raw_tags: str | list[str] | tuple[str, ...] | None = None,
+) -> str:
+    """Rakit `initial_prompt` faster-whisper dari tag bahasa yang aktif.
+
+    initial_prompt bekerja sebagai konteks awal decoder: menyebut kosakata yang
+    memang muncul di video mempersempit ruang tebak model, jadi kata Sunda tidak
+    lagi dipaksa jadi kata Indonesia/Spanyol yang bunyinya mirip.
+
+    Bentuknya KALIMAT, bukan daftar berpoin — lihat alasan terukurnya di komentar
+    `_LANG_PROMPT_CLAUSE`. Contoh keluaran untuk "id,su,en":
+        "Ini transkrip percakapan santai berbahasa Indonesia yang bercampur Bahasa
+         Sunda seperti kumaha, atuh, ... Ada juga istilah Inggris seperti gadget,
+         review, ..."
+
+    CATATAN: ini lapisan LOKAL di depan koreksi Gemini (`correct_text_trilingual()`),
+    BUKAN penggantinya (keputusan user A, 2026-09-03).
+    """
+    tags = parse_lang_tags(raw_tags)
+    klausa = [_LANG_PROMPT_CLAUSE[t] for t in tags if t in _LANG_PROMPT_CLAUSE]
+    if klausa:
+        kalimat = "Ini transkrip percakapan santai " + " yang ".join(klausa) + "."
+    else:
+        # Bisa terjadi kalau hanya `en` yang aktif. Tetap sebut bahasa dasarnya:
+        # transkripsi berjalan dengan language="id" apa pun tag-nya.
+        kalimat = "Ini transkrip percakapan santai berbahasa Indonesia."
+    tambahan = [_LANG_PROMPT_EXTRA[t] for t in tags if t in _LANG_PROMPT_EXTRA]
+    return " ".join([kalimat, *tambahan])
+
+
+# Parameter VAD (Silero-VAD lewat faster-whisper). Ini pekerjaan MENAMBAH:
+# `vad_filter` default False di faster-whisper (terukur: faster_whisper 1.2.1 di
+# `.whisperx-venv`), dan kode ini memanggil `WhisperModel(...)` langsung — BUKAN
+# `whisperx.load_model` yang membawa Silero-VAD. Jadi tanpa baris ini VAD tidak
+# aktif sama sekali dan audio hening / musik latar tetap dikirim ke decoder, yang
+# memproduksi teks gaib dan looping.
+#
+# Bukti terukur 2026-09-03, video uji 10s hening + 12s bicara + 10s hening:
+#   vad_filter OFF -> 2 segmen; segmen kedua 30.00s->34.00s berbunyi
+#                     "Terima kasih telah menonton" (teks gaib murni, di bagian
+#                     yang audionya benar-benar sunyi), dan segmen pertama
+#                     direntangkan 0.00s->30.00s.
+#   vad_filter ON  -> 1 segmen 10.10s->22.10s, tepat di bagian yang ada suaranya.
+#                     Nol teks gaib.
+#
+# Nilainya SENGAJA sama dengan default VadOptions faster-whisper (2000/400) dan
+# ditulis eksplisit, bukan dikosongkan. Setelan lebih agresif (500/200) sudah diuji
+# dan DITOLAK: pada video uji yang sama ia ikut memotong ucapan nyata di awal
+# ("Tinggi saat ini." hilang, 14 kata vs 19 kata). Jangan diperketat tanpa
+# mengukur ulang dengan klip yang punya bagian hening.
+_VAD_PARAMETERS: dict[str, Any] = {
+    "min_silence_duration_ms": 2000,
+    "speech_pad_ms": 400,
+}
+
+
+# ---------------------------------------------------------------------------
 # Manifest loading
 # ---------------------------------------------------------------------------
 
@@ -470,7 +636,8 @@ def _run_whisperx_alignment(
 
 def transcribe_clip_asr(
     input_path: Path,
-    language: str = "id",
+    language: str = _ALIGNMENT_LANGUAGE,
+    lang_tags: str | list[str] | tuple[str, ...] | None = None,
 ) -> str:
     """Transkripsi ASR sebagai JALUR FALLBACK ketika video tidak punya CC YouTube.
 
@@ -484,6 +651,18 @@ def transcribe_clip_asr(
             pengulangan kata ("Bagaimana? Bagaimana?...") pada audio lapangan bising.
         no_speech_threshold=0.6           -> membuang derau angin tanpa vokal manusia.
         temperature=(0.0, 0.2, 0.4)       -> fallback sampling saat decoder stagnan.
+        vad_filter=True                   -> Silero-VAD memangkas hening/musik latar
+            SEBELUM decoder jalan (Item 24 poin 3b). `vad_filter` default False di
+            faster-whisper dan kode ini memanggil `WhisperModel(...)` langsung, BUKAN
+            `whisperx.load_model` yang membawa VAD-nya sendiri — jadi tanpa baris ini
+            VAD tidak aktif sama sekali dan bagian hening menghasilkan teks gaib.
+        initial_prompt=<kosakata bahasa>  -> mempersempit ruang tebak model ke bahasa
+            yang dipilih user (Item 24 poin 3a).
+
+    `language` TETAP "id" (_ALIGNMENT_LANGUAGE). `lang_tags` HANYA merakit
+    initial_prompt dan TIDAK BOLEH masuk parameter `language=` — lihat larangan
+    lengkapnya di blok komentar _ALIGNMENT_LANGUAGE.
+
     Teks hasil di sini masih kasar; pembersihannya dilakukan koreksi Gemini trilingual
     di `run()`, lalu di-align ke audio supaya detik per katanya tetap presisi.
 
@@ -512,19 +691,37 @@ def transcribe_clip_asr(
             device = "cpu"
         compute_type = "float16" if device == "cuda" else "int8"
 
+        # Tag bahasa -> initial_prompt (Item 24 3a). Dinormalkan di sini supaya
+        # daftar kosong TIDAK pernah lolos ke bawah (jatuh ke ["id"]).
+        tags = parse_lang_tags(
+            lang_tags if lang_tags is not None else _LANG_TAGS_DEFAULT_RAW
+        )
+        initial_prompt = build_initial_prompt(tags)
+
         logger.info(
             "ASR fallback: faster-whisper '%s' (device=%s) untuk %s",
             _WHISPER_MODEL, device, input_path.name,
+        )
+        _log_info(
+            "ASR fallback: lang-tags=%s | VAD=ON | language=%s (tetap, jangan diganti)",
+            ",".join(tags), language,
         )
         try:
             model = WhisperModel(_WHISPER_MODEL, device=device, compute_type=compute_type)
             segments, info = model.transcribe(
                 str(audio_path),
+                # `language` TETAP "id": tag bahasa TIDAK BOLEH masuk ke sini, kalau
+                # `su` masuk maka forced alignment mati dan SRT 1 kata/entri hancur.
                 language=language,
                 beam_size=5,
                 condition_on_previous_text=False,
                 no_speech_threshold=0.6,
                 temperature=(0.0, 0.2, 0.4),
+                # Item 24 3a: satu-satunya tempat centang bahasa berpengaruh.
+                initial_prompt=initial_prompt,
+                # Item 24 3b: VAD Silero DIPASANG (default faster-whisper False).
+                vad_filter=True,
+                vad_parameters=_VAD_PARAMETERS,
             )
             parts = [seg.text.strip() for seg in segments if seg.text and seg.text.strip()]
             text = " ".join(parts).strip()
@@ -1042,6 +1239,7 @@ def run(
     manifest_path: Path | None = None,
     video_id: str | None = None,
     force: bool = False,
+    lang_tags: str | list[str] | tuple[str, ...] | None = None,
 ) -> None:
     """Run Stage 4: generate subtitles for all clips using WhisperX forced alignment.
 
@@ -1049,12 +1247,25 @@ def run(
         manifest_path: Explicit path to Stage 2 manifest. If None, finds latest.
         video_id: Optional YouTube video ID to filter.
         force: If True, re-align and regenerate even if outputs exist.
+        lang_tags: Tag bahasa ("id,su" atau ["id","su"]) untuk merakit initial_prompt
+            ASR fallback. TIDAK dipakai sebagai `language=` — lihat larangan di blok
+            komentar `_ALIGNMENT_LANGUAGE`. Daftar kosong jatuh ke ["id"].
     """
     _setup_logging()
     _ensure_dirs()
 
+    # Tag bahasa dinormalkan sekali di awal supaya seluruh klip memakai daftar yang sama
+    # dan daftar kosong tidak pernah lolos ke bawah.
+    active_lang_tags = parse_lang_tags(
+        lang_tags if lang_tags is not None else _LANG_TAGS_DEFAULT_RAW
+    )
+
     logger.info("=" * 60)
     logger.info("[4/5] STAGE 4: SMART SUBTITLE GENERATION (WhisperX)")
+    logger.info(
+        "Lang tags: %s (initial_prompt saja) | language= tetap '%s' | VAD: ON",
+        ",".join(active_lang_tags), _ALIGNMENT_LANGUAGE,
+    )
     logger.info("=" * 60)
 
     # Load Stage 2 manifest
@@ -1188,7 +1399,11 @@ def run(
             logger.warning(
                 "Clip %d: Tidak ada CC YouTube — beralih ke ASR faster-whisper.", clip_id,
             )
-            cc_text = transcribe_clip_asr(input_path, language="id")
+            cc_text = transcribe_clip_asr(
+                input_path,
+                language=_ALIGNMENT_LANGUAGE,
+                lang_tags=active_lang_tags,
+            )
             if cc_text:
                 transcript_source = "whisper_asr"
                 whisper_used = True
@@ -1642,7 +1857,21 @@ def _run_cli() -> None:
              "(3). Stage 5 bisa memecah LEBIH HALUS saat render tapi tidak bisa "
              "menggabungkan kembali, jadi nilai di sini adalah batas terkasar.",
     )
+    parser.add_argument(
+        "--lang-tags",
+        default=None,
+        help="Tag bahasa dipisah koma untuk initial_prompt WhisperX, mis. 'id,su' atau "
+             "'id,su,en'. Default 'id'. HANYA memengaruhi initial_prompt — parameter "
+             "language= transkripsi TETAP 'id' karena whisperx tidak punya model "
+             "forced-alignment untuk 'su'.",
+    )
     args = parser.parse_args()
+
+    # Tag bahasa dinormalkan sekali di sini; daftar kosong jatuh ke ["id"].
+    lang_tags = parse_lang_tags(
+        args.lang_tags if args.lang_tags is not None else _LANG_TAGS_DEFAULT_RAW
+    )
+    initial_prompt = build_initial_prompt(lang_tags)
 
     # Batas aman: 0/negatif akan membuat make_srt menghasilkan grup kosong.
     target_words = int(args.target_words or _TARGET_WORDS)
@@ -1679,6 +1908,8 @@ def _run_cli() -> None:
     print(f"Source:     {args.youtube_url}")
     print(f"Clip range: {clip_start:.3f}s -> {clip_end:.3f}s")
     print(f"ASR:        faster-whisper ({_WHISPER_MODEL})")
+    print(f"Lang tags:  {','.join(lang_tags)}  (initial_prompt saja; language= tetap '{_ALIGNMENT_LANGUAGE}')")
+    print("VAD:        ON (Silero via faster-whisper vad_filter)")
     print(f"Gemini:     {'ON (koreksi trilingual)' if os.getenv('GEMINI_API_KEY') else 'OFF (GEMINI_API_KEY kosong)'}")
     print("Stage 3:    SKIPPED")
     print()
@@ -1696,11 +1927,24 @@ def _run_cli() -> None:
         model = WhisperModel(wm, device="cpu", compute_type="int8")
         segments, info = model.transcribe(
             str(video_path), 
-            language="id", 
+            # `language` TETAP "id" (_ALIGNMENT_LANGUAGE). Tag bahasa dari --lang-tags
+            # TIDAK BOLEH masuk ke sini: whisperx tidak punya model forced-alignment
+            # untuk 'su'/'jv', jadi kalau 'su' dipakai di sini alignment mati dan
+            # timestamp per kata (fondasi SRT 1 kata/entri) hilang.
+            language=_ALIGNMENT_LANGUAGE,
             beam_size=5,
             condition_on_previous_text=False,
             no_speech_threshold=0.6,
-            temperature=(0.0, 0.2, 0.4)
+            temperature=(0.0, 0.2, 0.4),
+            # Item 24 3a: initial_prompt dari tag bahasa yang aktif — satu-satunya
+            # tempat centang bahasa berpengaruh.
+            initial_prompt=initial_prompt,
+            # Item 24 3b: VAD Silero DIPASANG di sini juga. Jalur ini yang dipakai
+            # stage4_batch.py di produksi; kalau hanya jalur transcribe_clip_asr()
+            # yang diperbaiki, produksi tidak kebagian sama sekali (kelas bug
+            # 'logika kembar' yang sudah pernah terjadi di file ini).
+            vad_filter=True,
+            vad_parameters=_VAD_PARAMETERS,
         )
         
         # Note: faster-whisper returns local timestamps (0 to clip_duration)

@@ -38,7 +38,17 @@ class Settings(BaseSettings):
     # kelas ini (di sini dan di bagian Subtitles); pydantic memakai yang terakhir,
     # jadi mengubah yang atas saja tidak berefek. Sekarang tinggal satu.
     whisper_model: str = "medium"
+    # MAX klip: jumlah yang DIMINTA ke Gemini (Item 27). Ini batas ATAS pencarian,
+    # sekaligus dasar perhitungan max_tokens jawaban di stage1_curate.
     target_clip_count: int = 5
+    # MIN klip: ambang PERINGATAN saja, BUKAN jaminan (keputusan user C, 2026-09-03).
+    # Yield Gemini tidak bisa dipaksa dan filter overlap 50% di
+    # `validate_and_normalize_clips()` masih memotong lagi sesudahnya. Kalau hasil
+    # kurang dari MIN, pipeline LANJUT dengan peringatan berangka — tanpa stop dan
+    # tanpa retry otomatis (retry membuang 1 dari 20 request/hari DAN menimpa file
+    # kurasi yang memuat pilihan review user).
+    # 0 = tidak diset -> MIN mengikuti MAX (perilaku lama sebelum Item 27).
+    min_clip_count: int = 0
 
     # --- Stage 1: batas durasi klip (detik) ---
     # Ini yang paling menentukan BERAPA BANYAK klip yang mungkin dihasilkan:
@@ -89,6 +99,22 @@ class Settings(BaseSettings):
 
     # --- Transcript ---
     transcript_languages: list[str] = ["id", "id-ID", "en", "en-US"]
+
+    # --- Stage 4: Preferred Languages (Item 24) ---
+    # Daftar tag bahasa yang dipakai HANYA untuk merakit `initial_prompt` WhisperX
+    # (kosakata Sunda/Inggris/Indo), supaya model tidak salah tebak bahasa daerah.
+    # Default backend/CLI = ["id"] sesuai Item 24 ("default kalau tidak diberikan: id").
+    # GUI mengirim centangnya sendiri secara eksplisit (`--lang-tags id,su`), jadi
+    # nilai di sini hanya berlaku saat CLI dipakai tanpa `--lang-tags`.
+    # Bisa ditimpa dari .env: SUBTITLE_LANG_TAGS=["id","su","en"]
+    #
+    # PERINGATAN: nilai ini TIDAK BOLEH diteruskan ke parameter `language=`
+    # faster-whisper/whisperx. Model forced-alignment whisperx hanya punya 41 bahasa;
+    # `id` dan `en` ada, `su` dan `jv` TIDAK ADA. Meneruskan `su` ke `language=`
+    # mematikan forced alignment -> timestamp per kata hilang -> SRT 1 kata/entri
+    # hancur -> kerapatan subtitle 1/3/5 kata di Theme kehilangan fondasinya.
+    # Bahasa transkripsi TETAP "id" (lihat stage4_subtitles._ALIGNMENT_LANGUAGE).
+    subtitle_lang_tags: list[str] = ["id"]
 
     @property
     def runtime_dirs(self) -> list[Path]:

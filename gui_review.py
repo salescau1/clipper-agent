@@ -26,7 +26,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QTimer, QUrl, Qt, Signal
+from PySide6.QtGui import QPainter, QPainterPath, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -38,6 +39,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -692,16 +694,88 @@ QSpinBox::down-arrow {
     border-right: 3px solid transparent;
     border-top: 4px solid #9FB4CC;
 }
+/* Kotak Max yang lebih kecil dari Min: PENANDA VISUAL, bukan pemaksaan nilai.
+   Versi lama memaksa `max = min + 10` di `_sync()` yang tersambung ke valueChanged,
+   jadi mengetik "120" di kotak Max langsung mental jadi 70 begitu digit "1" masuk
+   (bug "angka mental" 2026-09-03). Sekarang kotak bebas diketik; yang berubah hanya
+   warnanya + tombol Jalankan dinonaktifkan sampai rentangnya waras. */
+QSpinBox[invalid="true"] {
+    border: 1px solid #e06c75;
+    background: #2a1518;
+}
+/* Pembatas vertikal antar kelompok di Baris 3 kartu Run. QFrame.VLine nyaris tidak
+   terlihat di tema gelap ini, jadi dipakai kotak 1px berwarna. */
+#vsep { background: rgba(255,255,255,0.12); }
+#groupLabel {
+    font-size: 11px; font-weight: 900; color: #8FA5BF; letter-spacing: 0.06em;
+}
+/* Ikon (?) penjelas alur Auto/Manual. Menggantikan keterangan panjang yang dulu
+   ikut melebar di dalam baris dan menyempitkan kotak angka. */
+#helpDot {
+    color: #8FA5BF;
+    font-weight: 900;
+    font-size: 11px;
+    border: 1px solid rgba(255,255,255,0.20);
+    border-radius: 9px;
+    min-width: 18px; max-width: 18px;
+    min-height: 18px; max-height: 18px;
+}
+#helpDot:hover { color: #EAF2FF; border-color: #72E8FF; }
+/* Kartu THEMES: kotak preview rasio 9:16 + badge APPLIED. */
+#themePreview {
+    background: #070E1A;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 12px;
+}
+#appliedBadge {
+    background: #1b382b;
+    color: #2ecc71;
+    font-weight: 800;
+    font-size: 10.5px;
+    border-radius: 4px;
+    padding: 4px 10px;
+}
+#previewNote { font-size: 10.5px; color: #8FA5BF; }
+#themeCaption { font-size: 10.5px; color: #8FA5BF; }
 """
 
 
+def vertical_separator() -> QFrame:
+    """Pembatas vertikal 1px antar kelompok kontrol.
+
+    `QFrame.VLine` memakai warna palet yang di tema gelap ini nyaris tidak terlihat,
+    jadi dipakai QFrame kosong berlebar tetap yang diwarnai QSS (`#vsep`).
+    """
+    sep = QFrame()
+    sep.setObjectName("vsep")
+    sep.setFixedWidth(1)
+    sep.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+    sep.setMinimumHeight(34)
+    return sep
+
+
 class CurationSettings(QWidget):
-    """Setelan Stage 1: jumlah klip + batas durasi klip.
+    """Baris 3 Kartu Utama Run: rentang JUMLAH KLIP + rentang DURASI klip.
+
+    Dua pasang Min-Max berdiri sejajar dan dipisah pembatas vertikal. Satuan `s`
+    ditulis pada pasangan durasi supaya dua pasang angka ini tidak tertukar saat
+    dibaca cepat.
+
+    Jumlah klip adalah RENTANG PENCARIAN (keputusan user 2026-09-03):
+      MIN = ambang kebutuhan user  -> dikirim sebagai `--min-count`
+      MAX = batas atas pencarian   -> dikirim sebagai `--count`
+    MIN TIDAK DIJAMIN dan tidak boleh ditulis seolah dijamin: yield Gemini tidak bisa
+    dipaksa, dan filter tumpang-tindih masih memotong lagi setelahnya.
 
     Batas durasi ada di sini karena ITU penentu utama berapa banyak klip yang mungkin:
-    maksimum = durasi video / durasi minimal. Tanpa kontrol ini, meminta 20 klip dari
-    video 14 menit dengan minimal 60s mustahil terpenuhi dan akan terlihat seperti bug.
+    maksimum = durasi video / durasi minimal.
     """
+
+    # Dipancarkan saat kewarasan rentang berubah. clipper_gui memakainya untuk
+    # menyegarkan tombol Jalankan lewat SATU fungsi penentu (`_refresh_run_enabled`),
+    # bukan dengan memanggil setEnabled dari sini — dua tempat yang menulis keadaan
+    # tombol yang sama sudah pernah saling menimpa.
+    validity_changed = Signal(bool)
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -710,150 +784,132 @@ class CurationSettings(QWidget):
         outer.setSpacing(8)
 
         row = QHBoxLayout()
-        row.setSpacing(8)
+        row.setSpacing(14)
 
-        lbl = QLabel("Jumlah klip")
-        lbl.setObjectName("clipFieldLabel")
-        row.addWidget(lbl)
-        self.count = QSpinBox()
-        self.count.setRange(1, 40)
-        self.count.setValue(5)
+        # --- Kelompok TENGAH: rentang jumlah klip (MIN - MAX) ---
         # Lebar DIUKUR, bukan ditebak: `_measure_run.py` menaikkan lebar 2px sampai area
         # teks Qt (SC_SpinBoxEditField) cukup untuk nilai maksimum + ruang kursor.
         # 64px hanya menyisakan 22px area teks sedangkan "40" butuh 26px -> angka
         # terpotong (keluhan user 2026-08-31: "kotaknya masih ketutup").
-        self.count.setFixedWidth(82)
-        self.count.setToolTip(
-            "TARGET, bukan jaminan: LLM bisa mengembalikan lebih sedikit dan "
-            "kandidat bertumpuk dibuang validator."
+        self.count_min = self._spin(1, 40, 6, 82)
+        self.count_min.setToolTip(
+            "MIN: berapa klip yang BENAR-BENAR kamu butuhkan. Dikirim sebagai "
+            "--min-count dan hanya jadi ambang PERINGATAN — hasil kurang dari ini "
+            "tidak menghentikan pipeline dan tidak bisa dipaksa."
         )
-        row.addWidget(self.count)
+        self.count_max = self._spin(1, 40, 10, 82)
+        self.count_max.setToolTip(
+            "MAX: sampai berapa klip dicari (jumlah yang diminta ke Gemini). "
+            "TARGET, bukan jaminan: kandidat bertumpuk dibuang validator."
+        )
+        row.addLayout(self._pair("Klip", self.count_min, self.count_max))
 
-        row.addSpacing(12)
-        lbl2 = QLabel("Durasi klip")
-        lbl2.setObjectName("clipFieldLabel")
-        row.addWidget(lbl2)
-        self.min_sec = QSpinBox()
-        self.min_sec.setRange(5, 600)
-        self.min_sec.setValue(60)
-        self.min_sec.setSuffix("s")
-        self.min_sec.setFixedWidth(108)   # "600s" butuh 52px area teks (diukur)
+        row.addWidget(vertical_separator())
+
+        # --- Kelompok KANAN: rentang durasi klip (satuan `s` ditulis) ---
+        self.min_sec = self._spin(5, 600, 60, 108, suffix="s")   # "600s" butuh 52px (diukur)
         self.min_sec.setToolTip(
             "Durasi minimal. Makin kecil, makin banyak klip yang mungkin dari satu video."
         )
-        row.addWidget(self.min_sec)
-
-        dash = QLabel("–")
-        dash.setObjectName("clipFieldLabel")
-        row.addWidget(dash)
-        self.max_sec = QSpinBox()
-        self.max_sec.setRange(10, 900)
-        self.max_sec.setValue(240)
-        self.max_sec.setSuffix("s")
-        self.max_sec.setFixedWidth(108)   # "900s" butuh 52px area teks (diukur)
-        row.addWidget(self.max_sec)
+        self.max_sec = self._spin(10, 900, 240, 108, suffix="s")  # "900s" butuh 52px (diukur)
+        self.max_sec.setToolTip("Durasi maksimal satu klip.")
+        row.addLayout(self._pair("Durasi", self.min_sec, self.max_sec))
 
         row.addStretch()
         outer.addLayout(row)
-
-        # Baris 2: TEMA (preset Stage 5) yang dipakai saat render.
-        # Dropdown ini meneruskan `--preset <path>`; ia TIDAK menimpa
-        # `render_preset.active.json` (milik tab Customize) — keputusan user dikunci.
-        #
-        # CATATAN: opsi "Subtitle 1/3 kata" DIBUANG dari sini 2026-08-30 atas permintaan
-        # user. Kerapatan subtitle sekarang bagian dari THEME (Customize), dan Stage 4
-        # selalu menulis SRT 1 kata/entri (`config.subtitle_target_words = 1`) sehingga
-        # theme bisa menggabungkan jadi 1/3/5 kata tanpa menjalankan Stage 4 ulang.
-        # Dua kontrol untuk satu hal yang sama (satu mahal, satu gratis) adalah sumber
-        # kebingungan yang user sendiri tunjuk.
-        row3 = QHBoxLayout()
-        row3.setSpacing(8)
-        lbl4 = QLabel("Tema")
-        lbl4.setObjectName("clipFieldLabel")
-        row3.addWidget(lbl4)
-        self.theme_box = QComboBox()
-        self.theme_box.setMinimumWidth(260)
-        self.theme_box.setToolTip(
-            "Gaya render yang dieksekusi. Simpan gaya sebagai theme di tab Customize, "
-            "lalu pilih di sini. \"Draf Customize\" = isi tab Customize yang belum disimpan."
-        )
-        row3.addWidget(self.theme_box)
-        self.theme_refresh = QPushButton("↻")
-        self.theme_refresh.setObjectName("modeBtn")
-        self.theme_refresh.setFixedWidth(34)
-        self.theme_refresh.setToolTip("Muat ulang daftar theme")
-        self.theme_refresh.clicked.connect(self.reload_themes)
-        row3.addWidget(self.theme_refresh)
-        row3.addStretch()
-        outer.addLayout(row3)
 
         self.hint = QLabel("")
         self.hint.setObjectName("capacityHint")
         self.hint.setWordWrap(True)
         outer.addWidget(self.hint)
 
-        for w in (self.count, self.min_sec, self.max_sec):
+        self._valid = True
+        for w in (self.count_min, self.count_max, self.min_sec, self.max_sec):
             w.valueChanged.connect(self._sync)
         self._sync()
-        self.reload_themes()
 
-    def reload_themes(self) -> None:
-        """Isi dropdown tema dari Preset Library.
+    # ---------- perakitan kecil ----------
+    @staticmethod
+    def _spin(lo: int, hi: int, val: int, width: int, suffix: str = "") -> QSpinBox:
+        sp = QSpinBox()
+        sp.setRange(lo, hi)
+        sp.setValue(val)
+        if suffix:
+            sp.setSuffix(suffix)
+        sp.setFixedWidth(width)
+        # Nilai HANYA berubah saat user menekan Enter / pindah fokus. Tanpa ini Qt
+        # memancarkan valueChanged per ketikan; itu yang dulu memicu pemaksaan nilai
+        # di tengah pengetikan ("120" mental jadi 70).
+        sp.setKeyboardTracking(False)
+        return sp
 
-        Urutan (permintaan user 2026-08-30): THEME TERSIMPAN dulu, lalu "Draf Customize"
-        di paling bawah. Alasannya pembagian peran yang diminta user — tab Customize untuk
-        merapikan tampilan lalu MENYIMPAN sebagai theme, tab Run untuk MENJALANKAN theme
-        yang tersimpan. Draf tetap disediakan (kalau user memang belum menyimpan), tapi
-        bukan lagi pilihan pertama.
-        """
-        prev = self.theme_box.currentData() if self.theme_box.count() else None
-        self.theme_box.blockSignals(True)
-        self.theme_box.clear()
-        n_theme = 0
-        try:
-            import sys as _sys
-            stages_dir = str(Path(__file__).resolve().parent / "stages")
-            if stages_dir not in _sys.path:
-                _sys.path.insert(0, stages_dir)
-            import preset_library
-            for e in preset_library.list_presets():
-                self.theme_box.addItem(f"{e['name']} · {e['ratio']}", e["path"])
-                n_theme += 1
-        except Exception as exc:  # noqa: BLE001
-            self.theme_box.addItem(f"(gagal memuat theme: {exc})", "")
-        # Draf = isi tab Customize yang belum disimpan sebagai theme.
-        self.theme_box.addItem("Draf Customize (belum disimpan)", "")
-        if prev:
-            i = self.theme_box.findData(prev)
-            if i >= 0:
-                self.theme_box.setCurrentIndex(i)
-        elif n_theme:
-            self.theme_box.setCurrentIndex(0)   # theme terbaru
-        self.theme_box.blockSignals(False)
+    @staticmethod
+    def _pair(label: str, lo_box: QSpinBox, hi_box: QSpinBox) -> QHBoxLayout:
+        """Satu kelompok `Label: [min] – [max]`."""
+        box = QHBoxLayout()
+        box.setSpacing(6)
+        lbl = QLabel(f"{label}:")
+        lbl.setObjectName("groupLabel")
+        box.addWidget(lbl)
+        box.addWidget(lo_box)
+        dash = QLabel("–")
+        dash.setObjectName("clipFieldLabel")
+        box.addWidget(dash)
+        box.addWidget(hi_box)
+        return box
 
-    def preset_path(self) -> str:
-        """Path preset theme terpilih, atau "" untuk mengikuti preset aktif."""
-        return str(self.theme_box.currentData() or "")
+    # ---------- validasi visual (non-blocking) ----------
+    def _mark(self, box: QSpinBox, bad: bool, pesan: str) -> None:
+        """Warnai kotak Max yang lebih kecil dari Min. TIDAK mengubah nilainya."""
+        if bool(box.property("invalid")) != bad:
+            box.setProperty("invalid", bad)
+            box.style().unpolish(box)
+            box.style().polish(box)
+        if bad:
+            box.setToolTip(pesan)
+
+    def is_valid(self) -> bool:
+        """True kalau kedua pasang rentang waras (Max >= Min)."""
+        return (self.count_max.value() >= self.count_min.value()
+                and self.max_sec.value() >= self.min_sec.value())
 
     def _sync(self) -> None:
-        """Jaga max > min, dan tampilkan durasi video minimum yang dibutuhkan.
+        """Perbarui hint kapasitas + tanda validitas.
 
-        Angka yang ditampilkan adalah konsekuensi matematis dari setelan, bukan tebakan:
-        n klip @ min detik butuh video minimal n*min detik. Ini mencegah user meminta
-        20 klip dari video 14 menit lalu menganggap hasilnya bug.
+        TIDAK ADA PEMAKSAAN NILAI di sini. Versi lama memanggil
+        `max_sec.setValue(min+10)` dari fungsi yang tersambung ke `valueChanged`,
+        jadi mengetik "120" di kotak Max mental jadi 70 begitu digit "1" masuk
+        (1 <= 60). Sekarang kotak bebas diketik; rentang yang salah hanya DITANDAI
+        (kotak merah + tombol Jalankan mati) sampai user membetulkannya.
         """
-        if self.max_sec.value() <= self.min_sec.value():
-            self.max_sec.setValue(self.min_sec.value() + 10)
-        n = self.count.value()
+        klip_bad = self.count_max.value() < self.count_min.value()
+        detik_bad = self.max_sec.value() < self.min_sec.value()
+        self._mark(self.count_max, klip_bad,
+                   "Klip MAX tidak boleh lebih kecil dari MIN.")
+        self._mark(self.max_sec, detik_bad,
+                   "Durasi MAX tidak boleh lebih kecil dari MIN.")
+
+        n_min = self.count_min.value()
+        n_max = self.count_max.value()
         lo = self.min_sec.value()
-        butuh = n * lo
+        butuh = n_min * lo
         self.hint.setText(
-            f"{n} klip @ minimal {lo}s butuh video minimal {butuh // 60}m {butuh % 60}s. "
-            f"Video 15m maksimal {900 // lo} klip, video 30m maksimal {1800 // lo} klip."
+            f"MIN {n_min} klip @ minimal {lo}s butuh video minimal "
+            f"{butuh // 60}m {butuh % 60:02d}s; MAX {n_max} klip butuh "
+            f"{(n_max * lo) // 60}m {(n_max * lo) % 60:02d}s. "
+            f"Video 15m maksimal {900 // lo} klip, video 30m maksimal {1800 // lo} klip. "
+            "MIN adalah ambang peringatan, bukan jaminan — hasil bisa lebih sedikit."
         )
 
-    def values(self) -> tuple[int, int, int]:
-        return (self.count.value(), self.min_sec.value(), self.max_sec.value())
+        valid = self.is_valid()
+        if valid != self._valid:
+            self._valid = valid
+            self.validity_changed.emit(valid)
+
+    def values(self) -> tuple[int, int, int, int]:
+        """(klip MIN, klip MAX, durasi min detik, durasi max detik)."""
+        return (self.count_min.value(), self.count_max.value(),
+                self.min_sec.value(), self.max_sec.value())
 
     def subtitle_words(self) -> int:
         """Kerapatan SRT yang diminta ke Stage 4.
@@ -866,15 +922,443 @@ class CurationSettings(QWidget):
         return 1
 
 
+class LanguagePicker(QWidget):
+    """Baris 2 Kartu Utama Run: bahasa yang dipakai merakit `initial_prompt` WhisperX.
+
+    PENTING — ini BUKAN pemilih bahasa transkripsi. Centang di sini hanya menambah
+    kosakata contoh ke `initial_prompt` supaya WhisperX tidak salah menebak kata daerah.
+    Bahasa penyelarasan (forced alignment) tetap Indonesia karena whisperx tidak punya
+    model penyelaras untuk Sunda — meneruskan `su` ke `language=` akan mematikan
+    timestamp per kata dan menghancurkan SRT 1-kata/entri.
+    """
+
+    changed = Signal()
+
+    # (tag CLI, label UI, default)
+    BAHASA = (
+        ("en", "ENGLISH", False),
+        ("id", "INDONESIA", True),
+        ("su", "SUNDANESE", True),
+    )
+    # Dipakai saat user mengosongkan semua centang: `--lang-tags` kosong dilarang.
+    FALLBACK = "id"
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        col = QVBoxLayout(self)
+        col.setContentsMargins(0, 0, 0, 0)
+        col.setSpacing(4)
+
+        row = QHBoxLayout()
+        row.setSpacing(14)
+        lbl = QLabel("Preferred Languages:")
+        lbl.setObjectName("groupLabel")
+        row.addWidget(lbl)
+
+        self.boxes: dict[str, QCheckBox] = {}
+        for tag, label, default in self.BAHASA:
+            cb = QCheckBox(label)
+            cb.setChecked(default)
+            cb.setToolTip(
+                f"Tambahkan kosakata {label.title()} ke initial_prompt WhisperX. "
+                "Tidak mengubah bahasa transkripsi maupun timestamp."
+            )
+            cb.toggled.connect(self._on_toggled)
+            self.boxes[tag] = cb
+            row.addWidget(cb)
+        row.addStretch()
+        col.addLayout(row)
+
+        self.note = QLabel("")
+        self.note.setObjectName("capacityHint")
+        self.note.setWordWrap(True)
+        col.addWidget(self.note)
+        self._set_note(
+            "Bantuan kosakata untuk WhisperX (initial_prompt). Bahasa transkripsi & "
+            "timestamp tetap Indonesia.",
+            warn=False,
+        )
+
+    def _set_note(self, teks: str, *, warn: bool) -> None:
+        self.note.setText(teks)
+        nama = "capacityWarn" if warn else "capacityHint"
+        if self.note.objectName() != nama:
+            self.note.setObjectName(nama)
+            self.note.style().unpolish(self.note)
+            self.note.style().polish(self.note)
+
+    def _on_toggled(self, _checked: bool) -> None:
+        """Minimal satu bahasa wajib tercentang.
+
+        Kalau user mengosongkan semuanya, kembalikan ke `id` dan BERI TANDA di UI —
+        jangan pernah mengirim `--lang-tags` kosong ke CLI.
+        """
+        if not any(cb.isChecked() for cb in self.boxes.values()):
+            cb = self.boxes[self.FALLBACK]
+            cb.blockSignals(True)
+            cb.setChecked(True)
+            cb.blockSignals(False)
+            self._set_note(
+                "Minimal satu bahasa harus dipilih — INDONESIA dinyalakan kembali.",
+                warn=True,
+            )
+        else:
+            self._set_note(
+                "Bantuan kosakata untuk WhisperX (initial_prompt). Bahasa transkripsi & "
+                "timestamp tetap Indonesia.",
+                warn=False,
+            )
+        self.changed.emit()
+
+    def tags(self) -> list[str]:
+        """Tag bahasa aktif, urut en,id,su. Dijamin tidak pernah kosong."""
+        aktif = [tag for tag, cb in self.boxes.items() if cb.isChecked()]
+        return aktif or [self.FALLBACK]
+
+    def tags_arg(self) -> str:
+        """Nilai untuk `--lang-tags` (mis. \"id,su\")."""
+        return ",".join(self.tags())
+
+
+class ThemesCard(QWidget):
+    """Kartu THEMES: pilih theme tersimpan + preview 9:16 + badge APPLIED.
+
+    Preview DIRAKIT, bukan dibaca dari gambar siap pakai (tidak ada thumbnail di
+    ringkasan preset): thumbnail frame dari `frame_library` (dicari lewat `frame_id`
+    di file theme) ditumpuk dengan lapisan teks dari mesin render yang sama dengan
+    Stage 5 (Slot `render_text_layers`, dipasang lewat `set_layer_provider`).
+
+    Badge APPLIED hanya menyala kalau `theme_box.currentData()` memang menunjuk file
+    theme yang ada — bukan label mati. Kalau daftar theme kosong, badge disembunyikan.
+    """
+
+    # 200 x 356 = 9:16 (200 * 16/9 = 355.6). Gambar di dalamnya digambar 198x352 —
+    # tepat 9:16 (198 * 16/9 = 352) — supaya isi preview benar-benar seproporsi
+    # kanvas 1080x1920 dan tidak tergunting garis border 1px.
+    PREVIEW_W = 200
+    PREVIEW_H = 356
+    INNER_W = 198
+    INNER_H = 352
+
+    # Penanda watermark otomatis. WAJIB sama dengan `AUTO_WATERMARK_TOKENS` di
+    # stages/stage5_final.py — kalau berbeda, preview dan render menampilkan teks beda.
+    WM_AUTO_TOKENS = frozenset({
+        "creator!", "creator", "nama creator", "nama kreator",
+        "kreator!", "kreator", "<creator>", "{creator}",
+    })
+
+    theme_changed = Signal(str)
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self._layer_provider = None   # dipasang GUI: Slot render_text_layers
+        self._creator_hint = ""
+
+        col = QVBoxLayout(self)
+        col.setContentsMargins(0, 0, 0, 0)
+        col.setSpacing(10)
+
+        # Baris pemilih theme.
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        lbl = QLabel("Theme")
+        lbl.setObjectName("clipFieldLabel")
+        row.addWidget(lbl)
+        self.theme_box = QComboBox()
+        self.theme_box.setMinimumWidth(260)
+        # Tooltip TIDAK lagi menyebut "Draf Customize": pilihan itu dibuang
+        # (Item 25 2c) karena mengirim --preset kosong lalu jatuh ke
+        # render_preset.active.json — draf beku tanpa pemberitahuan.
+        self.theme_box.setToolTip(
+            "Gaya render yang dieksekusi. Tab Run hanya menjalankan THEME TERSIMPAN: "
+            "rapikan tampilan di tab Customize, tekan Simpan Theme, lalu pilih di sini."
+        )
+        self.theme_box.currentIndexChanged.connect(self._on_theme_selected)
+        row.addWidget(self.theme_box)
+        self.theme_refresh = QPushButton("↻")
+        self.theme_refresh.setObjectName("modeBtn")
+        self.theme_refresh.setFixedWidth(34)
+        self.theme_refresh.setToolTip("Muat ulang daftar theme")
+        self.theme_refresh.clicked.connect(self.reload_themes)
+        row.addWidget(self.theme_refresh)
+        row.addStretch()
+        col.addLayout(row)
+
+        # Preview + keterangan ringkas di sebelahnya.
+        body = QHBoxLayout()
+        body.setSpacing(14)
+
+        self.canvas = QLabel()
+        self.canvas.setObjectName("themePreview")
+        self.canvas.setFixedSize(self.PREVIEW_W, self.PREVIEW_H)
+        self.canvas.setAlignment(Qt.AlignCenter)
+        cl = QVBoxLayout(self.canvas)
+        cl.setContentsMargins(8, 8, 8, 8)
+        cl.setSpacing(6)
+        self.badge = QLabel("✓ APPLIED")
+        self.badge.setObjectName("appliedBadge")
+        self.badge.setAlignment(Qt.AlignCenter)
+        cl.addWidget(self.badge, 0, Qt.AlignHCenter | Qt.AlignTop)
+        cl.addStretch()
+        self.pv_note = QLabel("")
+        self.pv_note.setObjectName("previewNote")
+        self.pv_note.setWordWrap(True)
+        self.pv_note.setAlignment(Qt.AlignCenter)
+        cl.addWidget(self.pv_note, 0, Qt.AlignHCenter | Qt.AlignBottom)
+        body.addWidget(self.canvas, 0, Qt.AlignTop)
+
+        self.caption = QLabel("")
+        self.caption.setObjectName("themeCaption")
+        self.caption.setWordWrap(True)
+        self.caption.setAlignment(Qt.AlignTop)
+        body.addWidget(self.caption, 1, Qt.AlignTop)
+        col.addLayout(body)
+
+        # Preview digambar ulang lewat timer: mengganti theme cepat-cepat tidak
+        # menumpuk permintaan render lapisan teks.
+        self._paint_timer = QTimer(self)
+        self._paint_timer.setSingleShot(True)
+        self._paint_timer.setInterval(60)
+        self._paint_timer.timeout.connect(self._repaint_preview)
+
+        self.reload_themes()
+
+    # ---------- integrasi dengan GUI induk ----------
+    def set_layer_provider(self, fn) -> None:
+        """Pasang penyedia lapisan teks (Slot `PresetBridge.render_text_layers`)."""
+        self._layer_provider = fn
+        self._paint_timer.start()
+
+    def set_creator_hint(self, creator: str) -> None:
+        """Nama creator untuk contoh watermark di preview."""
+        baru = str(creator or "").strip().upper()
+        if baru != self._creator_hint:
+            self._creator_hint = baru
+            self._paint_timer.start()
+
+    # ---------- daftar theme ----------
+    def reload_themes(self) -> None:
+        """Isi dropdown dari Preset Library (`assets/presets/library/*.json`).
+
+        HANYA theme tersimpan. Item "Draf Customize (belum disimpan)" dibuang
+        2026-09-03 (keputusan user): item itu mengirim `--preset` kosong sehingga
+        Stage 5 jatuh ke `render_preset.active.json`.
+        """
+        prev = self.theme_box.currentData() if self.theme_box.count() else None
+        self.theme_box.blockSignals(True)
+        self.theme_box.clear()
+        n_theme = 0
+        try:
+            for e in self._list_presets():
+                self.theme_box.addItem(f"{e['name']} · {e['ratio']}", e["path"])
+                n_theme += 1
+        except Exception as exc:  # noqa: BLE001
+            self.theme_box.addItem(f"(gagal memuat theme: {exc})", "")
+        if not n_theme and not self.theme_box.count():
+            self.theme_box.addItem("(belum ada theme tersimpan)", "")
+        if prev:
+            i = self.theme_box.findData(prev)
+            if i >= 0:
+                self.theme_box.setCurrentIndex(i)
+        elif n_theme:
+            self.theme_box.setCurrentIndex(0)   # theme terbaru
+        self.theme_box.blockSignals(False)
+        self._paint_timer.start()
+
+    @staticmethod
+    def _list_presets() -> list[dict[str, Any]]:
+        import sys as _sys
+        stages_dir = str(Path(__file__).resolve().parent / "stages")
+        if stages_dir not in _sys.path:
+            _sys.path.insert(0, stages_dir)
+        import preset_library
+        return preset_library.list_presets()
+
+    def preset_path(self) -> str:
+        """Path file theme terpilih ("" kalau tidak ada theme tersimpan)."""
+        return str(self.theme_box.currentData() or "")
+
+    def _on_theme_selected(self, _idx: int) -> None:
+        self._paint_timer.start()
+        self.theme_changed.emit(self.preset_path())
+
+    # ---------- preview ----------
+    def _repaint_preview(self) -> None:
+        path = self.preset_path()
+        preset: dict[str, Any] = {}
+        if path:
+            try:
+                data = json.loads(Path(path).read_text(encoding="utf-8-sig"))
+                if isinstance(data, dict):
+                    preset = data
+            except Exception:  # noqa: BLE001
+                preset = {}
+
+        if not preset:
+            # Tidak ada theme yang benar-benar akan dipakai render -> badge MATI.
+            self.badge.setVisible(False)
+            self.canvas.setPixmap(QPixmap())
+            self.pv_note.setText(
+                "Belum ada theme tersimpan.\nSimpan gaya di tab Customize dulu."
+                if not path else "Theme tidak bisa dibaca."
+            )
+            self.caption.setText(
+                "Tab Run hanya menjalankan theme tersimpan. Buka tab Customize, "
+                "atur gaya, lalu tekan Simpan Theme."
+            )
+            return
+
+        self.badge.setVisible(True)
+        frame_id = str((preset.get("frame") or {}).get("id") or "")
+        thumb = self._frame_thumbnail(frame_id)
+        layers = self._text_layers(preset)
+
+        pm = QPixmap(self.INNER_W, self.INNER_H)
+        pm.fill(Qt.transparent)
+        p = QPainter(pm)
+        try:
+            p.setRenderHint(QPainter.Antialiasing, True)
+            p.setRenderHint(QPainter.SmoothPixmapTransform, True)
+            # Sudut dibulatkan supaya isi preview tidak menonjol keluar dari border
+            # rounded kotaknya (radius 12px di QSS, 10px di dalam garis 1px).
+            clip = QPainterPath()
+            clip.addRoundedRect(0.0, 0.0, float(self.INNER_W), float(self.INNER_H), 10.0, 10.0)
+            p.setClipPath(clip)
+            if thumb is not None:
+                # Thumbnail frame sudah 9:16 (240x426). KeepAspectRatioByExpanding
+                # menjaga isi tetap menutup kotak walau ada pembulatan 1px.
+                scaled = thumb.scaled(self.INNER_W, self.INNER_H,
+                                      Qt.KeepAspectRatioByExpanding,
+                                      Qt.SmoothTransformation)
+                p.drawPixmap(
+                    (self.INNER_W - scaled.width()) // 2,
+                    (self.INNER_H - scaled.height()) // 2,
+                    scaled,
+                )
+            # Urutan lapisan sama dengan render: subtitle, watermark, headline.
+            for key in ("sub", "wm", "head"):
+                lay = layers.get(key)
+                if lay is None:
+                    continue
+                # Lapisan teks berukuran KANVAS PENUH (1080x1920) dengan latar
+                # transparan, jadi cukup diskalakan ke kotak yang sama.
+                p.drawPixmap(
+                    0, 0,
+                    lay.scaled(self.INNER_W, self.INNER_H,
+                               Qt.IgnoreAspectRatio, Qt.SmoothTransformation),
+                )
+        finally:
+            p.end()
+        self.canvas.setPixmap(pm)
+
+        kurang: list[str] = []
+        if thumb is None:
+            kurang.append(f"frame '{frame_id}' tidak ditemukan" if frame_id else "theme tanpa frame")
+        if not layers:
+            kurang.append("lapisan teks belum tersedia")
+        self.pv_note.setText(" · ".join(kurang))
+
+        sub = preset.get("subtitle") or {}
+        canvas = preset.get("canvas") or {}
+        self.caption.setText(
+            f"Frame: {frame_id or '—'}\n"
+            f"Kanvas: {int(canvas.get('w', 0) or 0)}x{int(canvas.get('h', 0) or 0)}\n"
+            f"Font subtitle: {sub.get('font') or '—'}\n"
+            f"Animasi: {sub.get('animation') or '—'} · "
+            f"{int(sub.get('words_per_line', 0) or 0)} kata/baris\n"
+            "Preview digambar mesin render yang sama dengan Stage 5."
+        )
+
+    @staticmethod
+    def _frame_thumbnail(frame_id: str) -> QPixmap | None:
+        """Thumbnail 240x426 milik frame theme (None kalau frame tidak ada)."""
+        if not frame_id:
+            return None
+        try:
+            import sys as _sys
+            stages_dir = str(Path(__file__).resolve().parent / "stages")
+            if stages_dir not in _sys.path:
+                _sys.path.insert(0, stages_dir)
+            import frame_library
+            entry = frame_library.get_frame(frame_id)
+            if not entry:
+                return None
+            path = str(entry.get("thumbnail_path") or entry.get("frame_path") or "")
+            if not path:
+                return None
+            pm = QPixmap(path)
+            return None if pm.isNull() else pm
+        except Exception:  # noqa: BLE001
+            return None
+
+    def _wm_text(self, watermark: dict[str, Any]) -> str:
+        teks = str(watermark.get("text") or "").strip()
+        if not teks or teks.lower() in self.WM_AUTO_TOKENS:
+            return self._creator_hint or "CREATOR"
+        return teks
+
+    def _text_layers(self, preset: dict[str, Any]) -> dict[str, QPixmap]:
+        """Minta lapisan teks (subtitle/watermark/headline) ke mesin render."""
+        if self._layer_provider is None:
+            return {}
+        canvas = preset.get("canvas") or {}
+        head = dict(preset.get("headline") or {})
+        wm = dict(preset.get("watermark") or {})
+        sub = dict(preset.get("subtitle") or {})
+        head["enabled"] = bool(head.get("enabled", True))
+        head["text"] = str(head.get("text") or "HEADLINE")
+        wm["enabled"] = bool(wm.get("enabled", True))
+        wm["text"] = self._wm_text(wm)
+        sub["enabled"] = True
+        sub["text"] = "CONTOH SUBTITLE KLIP"
+        sub["_frames"] = 1          # preview kartu statis: satu momen saja
+        spec = {
+            "canvas": {"w": int(canvas.get("w", 1080) or 1080),
+                       "h": int(canvas.get("h", 1920) or 1920)},
+            "blocks": {"sub": sub, "wm": wm, "head": head},
+        }
+        try:
+            raw = self._layer_provider(json.dumps(spec, ensure_ascii=False))
+            data = json.loads(raw or "{}")
+        except Exception:  # noqa: BLE001
+            return {}
+        if not isinstance(data, dict) or data.get("error"):
+            return {}
+        out: dict[str, QPixmap] = {}
+        for key in ("sub", "wm", "head"):
+            info = data.get(key) or {}
+            url = str(info.get("url") or "")
+            if not url:
+                continue
+            local = QUrl(url).toLocalFile() if url.startswith("file:") else url
+            pm = QPixmap(local)
+            if not pm.isNull():
+                out[key] = pm
+        return out
+
+
 class ModeToggle(QWidget):
     """Auto (sekali klik sampai render) vs Manual (berhenti setelah curation).
 
     Jalur sekali klik WAJIB tetap ada — permintaan eksplisit user.
+
+    `compact=True` menyembunyikan keterangan panjang di sebelah tombol: di Baris 3
+    kartu Run keterangan itu melebar dan menggencet dua pasang kotak angka, jadi
+    penjelasan alurnya dipindah ke tooltip ikon (?) milik pemanggil.
     """
 
     changed = Signal(str)
 
-    def __init__(self, parent: QWidget | None = None):
+    # Penjelasan alur untuk ikon (?) di kartu Run. Ditaruh di sini supaya teks
+    # tombol dan teks penjelasnya tidak bisa berbeda arti.
+    FLOW_HELP = (
+        "Auto: sekali klik jalan sampai video jadi — curation → download → "
+        "subtitle → render.\n"
+        "Manual: berhenti setelah curation. Klip muncul di panel Review klip untuk "
+        "dipilih dulu, jadi hanya klip yang kamu setujui yang diunduh & disubtitle."
+    )
+
+    def __init__(self, parent: QWidget | None = None, *, compact: bool = False):
         super().__init__(parent)
         row = QHBoxLayout(self)
         row.setContentsMargins(0, 0, 0, 0)
@@ -898,7 +1382,8 @@ class ModeToggle(QWidget):
 
         self.desc = QLabel("")
         self.desc.setObjectName("capacityHint")
-        row.addWidget(self.desc, 1)
+        self.desc.setVisible(not compact)
+        row.addWidget(self.desc, 0 if compact else 1)
         self._set("auto")
 
     def _set(self, mode: str) -> None:

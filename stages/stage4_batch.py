@@ -32,7 +32,23 @@ def main() -> int:
         default=None,
         help="Kata per baris subtitle (diteruskan ke stage4_subtitles.py).",
     )
+    parser.add_argument(
+        "--lang-tags",
+        default=None,
+        help="Tag bahasa dipisah koma untuk initial_prompt WhisperX, mis. 'id,su' "
+             "atau 'id,su,en'. Default 'id'. Diteruskan apa adanya ke "
+             "stage4_subtitles.py — di sana tag HANYA merakit initial_prompt, "
+             "parameter language= transkripsi TETAP 'id' (whisperx tidak punya model "
+             "forced-alignment untuk 'su').",
+    )
     args = parser.parse_args()
+
+    # Normalisasi ringan di sini: daftar kosong / hanya koma JANGAN diteruskan ke
+    # subprocess (Item 24 poin 2 — jangan pernah mengirim --lang-tags kosong).
+    # Normalisasi tag yang sesungguhnya tetap di stage4_subtitles.parse_lang_tags().
+    lang_tags = ",".join(
+        t.strip() for t in (args.lang_tags or "").split(",") if t.strip()
+    )
 
     manifest_path = Path(args.manifest).resolve()
     data = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -48,6 +64,7 @@ def main() -> int:
     print(f"Manifest: {manifest_path}")
     print(f"YouTube:  {source_url}")
     print(f"Clips:    {len(clips)}")
+    print(f"Lang tags: {lang_tags or '(default: id)'}")
     print("Stage 3:  SKIPPED")
     print()
 
@@ -95,6 +112,10 @@ def main() -> int:
         ]
         if args.target_words:
             cmd += ["--target-words", str(args.target_words)]
+        # Diteruskan HANYA kalau tidak kosong: subprocess punya defaultnya sendiri
+        # ("id"), dan mengirim string kosong akan membuat semua tag terbuang.
+        if lang_tags:
+            cmd += ["--lang-tags", lang_tags]
 
         result = subprocess.run(cmd)
         if result.returncode != 0:

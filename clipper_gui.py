@@ -55,8 +55,11 @@ from stages.caption_txt import CAPTION_FILENAME  # noqa: E402
 from gui_review import (  # noqa: E402  (butuh PROJECT_ROOT di atas)
     REVIEW_QSS,
     CurationSettings,
+    LanguagePicker,
     ModeToggle,
     ReviewPanel,
+    ThemesCard,
+    vertical_separator,
 )
 from gui_logparse import (  # noqa: E402
     classify_log_line,
@@ -94,6 +97,10 @@ TR: dict[str, dict[str, str]] = {
         "paste": "Paste",
         "run": "Jalankan",
         "stop": "Hentikan",
+        # `hint` sudah TIDAK dipakai widget mana pun sejak Item 26 membuang label
+        # "Contoh: https://..." (placeholder kotak URL memuat contoh yang sama).
+        # Kuncinya dipertahankan supaya preset bahasa/pemeriksa i18n yang membandingkan
+        # kunci ID vs EN tidak melaporkan kunci hilang.
         "hint": "Contoh: https://www.youtube.com/watch?v=H-aPguC0xL0",
         "progress": "Progress",
         "ready": "Siap",
@@ -934,6 +941,8 @@ class ClipperWindow(QMainWindow):
         self.current_mode = "pipeline"
         self._pending_manual = False  # True saat jalur Manual (Stage 1 saja) berjalan
         self._user_stopped = False    # True kalau proses berakhir karena tombol Hentikan
+        # Satu-satunya sumber kebenaran "sedang berjalan" untuk `_refresh_run_enabled()`.
+        self._running = False
         # Progres per-klip: stage yang sedang jalan + hitungan klipnya.
         self._stage_key = ""
         self._clip_total = 0
@@ -1161,6 +1170,11 @@ class ClipperWindow(QMainWindow):
         bridge = getattr(self, "stage5_bridge", None)
         if bridge is not None:
             bridge.set_creator_hint(self._pending_creator)
+        # Preview kartu THEMES memakai creator yang sama supaya contoh watermark di
+        # tab Run tidak menampilkan nama channel video lain.
+        tc = getattr(self, "themes_card", None)
+        if tc is not None:
+            tc.set_creator_hint(self._pending_creator)
 
     def switch_run_panel(self, idx: int) -> None:
         for i, b in enumerate(self.run_nav):
@@ -1208,17 +1222,14 @@ class ClipperWindow(QMainWindow):
     def _build_panel_jalankan(self) -> QWidget:
         col = QWidget()
         layout = QVBoxLayout(col)
+        # Judul panel DIBUANG (Item 26): nama panel sudah tertulis di sidebar kiri
+        # lengkap dengan indikator aktif, jadi judul di sini hanya mengulang dan makan
+        # ruang vertikal. Layout langsung mulai dari kartu pertama; margin atas 26px
+        # yang tadinya menopang judul dipertahankan supaya kartu tidak menempel topbar.
         layout.setContentsMargins(30, 26, 30, 26)
         layout.setSpacing(16)
 
-        # Judul panel = teks biasa (permintaan user 2026-08-30). Judul 22px + deskripsi
-        # di sini hanya mengulang nama yang sudah tertulis di sidebar.
-        title = QLabel(self.RUN_PANELS[0])
-        title.setObjectName("panelLabel")
-        self._tr_title = title
-        layout.addWidget(title)
-
-        # --- Kartu 1: URL + Auto/Manual (yang SELALU dipakai) ---
+        # --- Kartu Utama Run: URL + bahasa + mode/rentang (yang SELALU dipakai) ---
         url_card = QFrame()
         url_card.setObjectName("card")
         url_layout = QVBoxLayout(url_card)
@@ -1230,6 +1241,7 @@ class ClipperWindow(QMainWindow):
         self._tr_url = url_title
         url_layout.addWidget(url_title)
 
+        # Baris 1: URL + tombol Paste.
         row = QHBoxLayout()
         row.setSpacing(8)
         self.url_input = QLineEdit()
@@ -1244,28 +1256,62 @@ class ClipperWindow(QMainWindow):
         row.addWidget(self.paste_btn)
         url_layout.addLayout(row)
 
-        hint = QLabel(t("hint"))
-        hint.setObjectName("hint")
-        hint.setWordWrap(True)
-        self._tr_hint = hint
-        url_layout.addWidget(hint)
+        # Hint "Contoh: https://..." DIBUANG (Item 26): placeholder kotak URL sudah
+        # memuat contoh yang sama.
 
-        self.mode_toggle = ModeToggle()
+        # Baris 2: Preferred Languages (bantuan kosakata initial_prompt WhisperX).
+        self.lang_picker = LanguagePicker()
+        url_layout.addWidget(self.lang_picker)
+
+        # Baris 3: tiga kelompok SEJAJAR dipisah pembatas vertikal —
+        # [Auto|Manual] + (?)  |  Klip MIN-MAX  |  Durasi MIN-MAX.
+        row3 = QHBoxLayout()
+        row3.setSpacing(14)
+
+        mode_wrap = QWidget()
+        mode_group = QHBoxLayout(mode_wrap)
+        mode_group.setContentsMargins(0, 0, 0, 0)
+        mode_group.setSpacing(6)
+        self.mode_toggle = ModeToggle(compact=True)
         self.mode_toggle.changed.connect(lambda _m: self._update_run_nav())
-        url_layout.addWidget(self.mode_toggle)
+        mode_group.addWidget(self.mode_toggle)
+        # Ikon (?) menggantikan keterangan panjang yang dulu ikut melebar di baris ini
+        # dan menggencet kotak angka. Isi tooltipnya milik ModeToggle supaya teks
+        # tombol dan penjelasannya tidak bisa berbeda arti.
+        help_dot = QLabel("?")
+        help_dot.setObjectName("helpDot")
+        help_dot.setAlignment(Qt.AlignCenter)
+        help_dot.setToolTip(ModeToggle.FLOW_HELP)
+        mode_group.addWidget(help_dot)
+        # AlignTop, bukan pusat: `CurationSettings` memuat hint kapasitas di bawah kotak
+        # angkanya sehingga tingginya lebih besar. Tanpa AlignTop tombol Auto/Manual
+        # dipusatkan terhadap tinggi TOTAL itu dan turun ~23px — terlihat tidak sejajar
+        # dengan kotak Klip/Durasi (terukur 2026-09-03: mode y=259 vs klip y=236).
+        row3.addWidget(mode_wrap, 0, Qt.AlignTop)
+
+        row3.addWidget(vertical_separator())
+
+        # CurationSettings memuat dua kelompok terakhir (Klip & Durasi) beserta
+        # pembatas di antaranya + hint kapasitas di bawahnya.
+        self.curation_settings = CurationSettings()
+        self.curation_settings.validity_changed.connect(
+            lambda _ok: self._refresh_run_enabled()
+        )
+        row3.addWidget(self.curation_settings, 1)
+        url_layout.addLayout(row3)
         layout.addWidget(url_card)
 
-        # --- Kartu 2: Setelan (dipisah dari URL supaya tidak menumpuk) ---
+        # --- Kartu THEMES: pilih theme tersimpan + preview 9:16 + badge APPLIED ---
         set_card = QFrame()
         set_card.setObjectName("card")
         sl = QVBoxLayout(set_card)
         sl.setContentsMargins(20, 18, 20, 18)
         sl.setSpacing(12)
-        st = QLabel("SETELAN")
+        st = QLabel("THEMES")
         st.setObjectName("cardTitle")
         sl.addWidget(st)
-        self.curation_settings = CurationSettings()
-        sl.addWidget(self.curation_settings)
+        self.themes_card = ThemesCard()
+        sl.addWidget(self.themes_card)
         layout.addWidget(set_card)
 
         # Tombol Jalankan berdiri sendiri di bawah, bukan berdesakan di baris URL.
@@ -1278,6 +1324,7 @@ class ClipperWindow(QMainWindow):
         self.run_btn.clicked.connect(self.run_pipeline)
         act.addWidget(self.run_btn)
         layout.addLayout(act)
+        self._refresh_run_enabled()
 
         # Kartu dipatok ke ATAS. Tanpa stretch di sini, QVBoxLayout membagi sisa tinggi
         # (terukur 371px pada jendela 860px) ke kartu-kartu sehingga isinya melayang di
@@ -1293,9 +1340,7 @@ class ClipperWindow(QMainWindow):
         layout.setContentsMargins(30, 26, 30, 26)
         layout.setSpacing(14)
 
-        title = QLabel(self.RUN_PANELS[1])
-        title.setObjectName("panelLabel")
-        layout.addWidget(title)
+        # Judul panel dibuang (Item 26) — lihat komentar di _build_panel_jalankan.
 
         card = QFrame()
         card.setObjectName("card")
@@ -1321,9 +1366,7 @@ class ClipperWindow(QMainWindow):
         layout.setContentsMargins(30, 26, 30, 26)
         layout.setSpacing(14)
 
-        title = QLabel(self.RUN_PANELS[2])
-        title.setObjectName("panelLabel")
-        layout.addWidget(title)
+        # Judul panel dibuang (Item 26) — sidebar sudah menamainya.
 
         pipeline_card = QFrame()
         pipeline_card.setObjectName("card")
@@ -1395,10 +1438,8 @@ class ClipperWindow(QMainWindow):
         layout.setContentsMargins(30, 26, 30, 26)
         layout.setSpacing(14)
 
-        title = QLabel(self.RUN_PANELS[3])
-        title.setObjectName("panelLabel")
-        self._tr_res = title
-        layout.addWidget(title)
+        # Judul panel dibuang (Item 26) — sidebar sudah menamainya lengkap dengan
+        # jumlah hasil ("Hasil · 3").
 
         self.results_card = QFrame()
         self.results_card.setObjectName("card")
@@ -1589,11 +1630,17 @@ class ClipperWindow(QMainWindow):
         self.stage5_bridge.render_requested.connect(self.on_render_requested)
         self.stage5_bridge.render_clip_requested.connect(self.on_render_clip_requested)
         self.stage5_bridge.language_changed.connect(self.retranslate)
+        # Preview kartu THEMES di tab Run memakai MESIN RENDER yang sama dengan Stage 5
+        # (Slot `render_text_layers`), jadi apa yang tergambar di kartu adalah lapisan
+        # teks yang benar-benar dipakai saat render — bukan tiruan CSS/QPainter.
+        # Dipasang di sini karena bridge baru ada setelah halaman Customize dibangun.
+        self.themes_card.set_layer_provider(self.stage5_bridge.render_text_layers)
         # Pasang creator yang mungkin sudah dipilih SEBELUM halaman Customize dibangun
         # (panel Review dibuat lebih dulu dan bisa langsung memuat file).
         pending = getattr(self, "_pending_creator", "")
         if pending:
             self.stage5_bridge.set_creator_hint(pending)
+            self.themes_card.set_creator_hint(pending)
 
         if CUSTOMIZER_HTML.exists():
             self.stage5_web.load(QUrl.fromLocalFile(str(CUSTOMIZER_HTML)))
@@ -1627,17 +1674,17 @@ class ClipperWindow(QMainWindow):
         diminta user (Customize menyimpan, Run mengeksekusi).
         """
         try:
-            cs = self.curation_settings
-            cs.reload_themes()
+            tc = self.themes_card
+            tc.reload_themes()
             import sys as _sys
             stages_dir = str(PROJECT_ROOT / "stages")
             if stages_dir not in _sys.path:
                 _sys.path.insert(0, stages_dir)
             import preset_library
             path = str((preset_library.LIBRARY_DIR / f"{theme_id}.json").resolve())
-            i = cs.theme_box.findData(path)
+            i = tc.theme_box.findData(path)
             if i >= 0:
-                cs.theme_box.setCurrentIndex(i)
+                tc.theme_box.setCurrentIndex(i)
         except Exception as exc:  # noqa: BLE001
             self.log(f"[Theme] gagal menyegarkan daftar: {exc}", "warn")
 
@@ -1672,7 +1719,10 @@ class ClipperWindow(QMainWindow):
         self._elapsed.restart()
         self._timer.start()
         self.elapsed_label.setText("00:00")
-        self.run_btn.setEnabled(False)
+        # Render dari Customize memakai penentu tombol yang SAMA dengan pipeline;
+        # menulis `run_btn.setEnabled(False)` di sini akan bertabrakan dengannya.
+        self._running = True
+        self._refresh_run_enabled()
 
         args = [str(RENDER_WITH_PRESET), "--preset", path]
         if only_clip:
@@ -1882,14 +1932,20 @@ class ClipperWindow(QMainWindow):
             pass
 
     def retranslate(self, lang: str):
-        """Perbarui teks widget Qt saat bahasa diganti dari halaman Customize."""
+        """Perbarui teks widget Qt saat bahasa diganti dari halaman Customize.
+
+        HATI-HATI: seluruh badan fungsi ini dibungkus satu `except Exception: pass`.
+        Menyentuh atribut widget yang sudah dihapus TIDAK menimbulkan crash — yang
+        terjadi lebih buruk: AttributeError ditelan diam-diam dan SEMUA terjemahan
+        sesudah baris itu berhenti bekerja tanpa satu pun pesan error. Kalau sebuah
+        widget dibuang, baris terjemahannya HARUS dibuang di edit yang sama.
+        Baris `_tr_title` / `_tr_hint` / `_tr_res` dibuang 2026-09-03 bersama judul
+        panel & hint URL (Item 26).
+        """
         try:
-            self._tr_title.setText(self.RUN_PANELS[0])
             self._tr_url.setText(t("url_label", lang))
             self.paste_btn.setText(t("paste", lang))
-            self._tr_hint.setText(t("hint", lang))
             self._tr_prog.setText(t("progress", lang))
-            self._tr_res.setText(self.RUN_PANELS[3])
             self.open_folder_btn.setText(t("open_folder", lang))
             self.open_caption_btn.setText(t("open_caption", lang))
             self._tr_reshint.setText(t("dbl_click", lang))
@@ -2221,16 +2277,42 @@ class ClipperWindow(QMainWindow):
 
         Strip status (progress bar + timer + Hentikan) hanya muncul saat proses jalan,
         supaya tidak makan ruang saat idle tapi selalu terjangkau dari panel mana pun.
+
+        Keadaan tombol Jalankan TIDAK ditulis di sini. Dulu baris
+        `run_btn.setEnabled(not running)` berdiri sendiri di sini, sehingga tombol yang
+        dinonaktifkan karena rentang Min-Max tidak valid HIDUP LAGI setiap proses
+        selesai. Sekarang keadaannya hanya ditentukan `_refresh_run_enabled()`.
         """
+        self._running = bool(running)
         self.status_strip.setVisible(running)
-        self.run_btn.setEnabled(not running)
         self.stop_btn.setEnabled(running)
         self.stop_btn.setText(t("stop"))
         # Setelan tidak boleh diubah saat proses jalan — nilainya sudah terkirim ke CLI,
         # jadi mengubahnya hanya akan menyesatkan.
-        for w in (self.curation_settings, self.mode_toggle, self.paste_btn, self.url_input):
+        for w in (self.curation_settings, self.lang_picker, self.themes_card,
+                  self.mode_toggle, self.paste_btn, self.url_input):
             w.setEnabled(not running)
+        self._refresh_run_enabled()
         self._update_run_nav()
+
+    def _refresh_run_enabled(self) -> None:
+        """SATU-SATUNYA penentu keadaan tombol Jalankan.
+
+        Menggabungkan dua syarat yang dulu ditulis di tempat berbeda dan saling
+        menimpa: "tidak sedang berjalan" DAN "input valid" (Klip MAX >= MIN dan
+        Durasi MAX >= MIN). Semua jalur yang perlu mengubah tombol ini WAJIB lewat
+        sini — jangan menulis `run_btn.setEnabled(...)` di tempat lain.
+        """
+        btn = getattr(self, "run_btn", None)
+        if btn is None:
+            return
+        cs = getattr(self, "curation_settings", None)
+        valid = cs.is_valid() if cs is not None else True
+        btn.setEnabled(not getattr(self, "_running", False) and valid)
+        btn.setToolTip(
+            "" if valid else
+            "Rentang belum valid: kotak merah menandai MAX yang lebih kecil dari MIN."
+        )
 
     def _kill_process_tree(self, pid: int) -> bool:
         """Matikan proses beserta SELURUH anak-cucunya (Windows).
@@ -2301,9 +2383,15 @@ class ClipperWindow(QMainWindow):
         args = ["continue-from", "--curation", curation_path]
         # SRT selalu ditulis 1 kata/entri; kerapatan tampilannya urusan THEME.
         args += ["--target-words", str(self.curation_settings.subtitle_words())]
+        # Centang bahasa hanya merakit `initial_prompt` WhisperX (bukan `language=`).
+        # Dikirim DI SINI, bukan di perintah `stage1`: separuh kedua jalur Manual inilah
+        # yang benar-benar menjalankan Stage 4. Diperiksa 2026-09-03 —
+        # `main.py continue-from` menerima `--lang-tags`, `main.py stage1` TIDAK
+        # (Stage 1 transkripsi kasar sendiri dengan language="id" tetap).
+        args += ["--lang-tags", self.lang_picker.tags_arg()]
         # Tema dari dropdown diteruskan sebagai --preset. TIDAK menimpa
         # render_preset.active.json: itu milik tab Customize (keputusan user dikunci).
-        tema = self.curation_settings.preset_path()
+        tema = self.themes_card.preset_path()
         if tema:
             args += ["--preset", tema]
         self._start_stage_process(
@@ -2328,33 +2416,67 @@ class ClipperWindow(QMainWindow):
             self.url_input.selectAll()
             return
 
-        count, lo, hi = self.curation_settings.values()
+        # Rentang tidak valid seharusnya sudah menonaktifkan tombol; cek lagi di sini
+        # supaya jalur lain (mis. Enter di kotak URL) tidak menembusnya.
+        if not self.curation_settings.is_valid():
+            QMessageBox.warning(
+                self, "Rentang belum valid",
+                "Nilai MAX tidak boleh lebih kecil dari MIN. Kotak yang bermasalah "
+                "ditandai merah.",
+            )
+            return
+
+        n_min, n_max, lo, hi = self.curation_settings.values()
         words = self.curation_settings.subtitle_words()
+        langs = self.lang_picker.tags_arg()
 
         if self.mode_toggle.mode == "manual":
             # Mode Manual: HANYA Stage 1. Klip lalu muncul di Review klip untuk dipilih
             # sebelum download — inilah yang menghemat ~2-3 menit unduh + ~2 menit
             # subtitle per klip yang tidak diinginkan.
-            args = ["stage1", "--url", url, "--count", str(count),
+            # `--count` = MAX (batas atas pencarian), `--min-count` = ambang kebutuhan.
+            # `--lang-tags` TIDAK dikirim di sini: perintah `stage1` tidak menerimanya
+            # (diperiksa 2026-09-03 lewat `main.py stage1 --help`) dan memang tidak
+            # perlu — centang bahasa hanya memengaruhi initial_prompt WhisperX yang
+            # jalan di Stage 4, yaitu di `continue-from` setelah review.
+            args = ["stage1", "--url", url,
+                    "--count", str(n_max), "--min-count", str(n_min),
                     "--min-sec", str(lo), "--max-sec", str(hi)]
             judul = (f"Curation saja (mode Manual)\nURL: {url}\n"
-                     f"{count} klip, durasi {lo}-{hi}s")
+                     f"Klip {n_min}-{n_max} (MIN tidak dijamin), durasi {lo}-{hi}s")
             self._pending_manual = True
             self._start_stage_process(args, judul, first_stage="Curation")
             return
 
-        args = ["run", "--url", url, "--count", str(count),
+        args = ["run", "--url", url,
+                "--count", str(n_max), "--min-count", str(n_min),
                 "--min-sec", str(lo), "--max-sec", str(hi),
-                "--target-words", str(words)]
-        tema = self.curation_settings.preset_path()
+                "--target-words", str(words),
+                "--lang-tags", langs]
+        tema = self.themes_card.preset_path()
         if tema:
             args += ["--preset", tema]
         self._pending_manual = False
         self._start_stage_process(
             args,
-            f"Memulai full pipeline...\nURL: {url}\n{count} klip, durasi {lo}-{hi}s",
+            f"Memulai full pipeline...\nURL: {url}\n"
+            f"Klip {n_min}-{n_max} (MIN tidak dijamin), durasi {lo}-{hi}s\n"
+            f"Bahasa initial_prompt: {langs}\n"
+            + (f"Theme: {Path(tema).stem}" if tema else self._no_theme_note()),
             first_stage="Curation",
         )
+
+    @staticmethod
+    def _no_theme_note() -> str:
+        """Keterangan saat tidak ada theme tersimpan yang bisa dikirim.
+
+        Tanpa `--preset`, Stage 5 jatuh ke `render_preset.active.json`. Itu harus
+        DIKATAKAN, bukan dibiarkan diam-diam: keputusan user (Item 25) adalah tab Run
+        menjalankan theme tersimpan, jadi keadaan "tidak ada theme" perlu terlihat di
+        log alih-alih menghasilkan gaya yang tidak dipilih siapa pun.
+        """
+        return ("Theme: (belum ada theme tersimpan) — render memakai preset aktif "
+                "terakhir dari Customize. Simpan Theme dulu supaya gayanya pasti.")
 
     def read_stdout(self):
         if not self.process:
