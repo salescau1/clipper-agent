@@ -36,6 +36,23 @@ sampleframe/*.srt
 # Karantina hasil tools/cleanup.py (bisa dihapus manual kalau sudah yakin)
 _trash_*/
 
+# KUNCI API mentah. `deepgram.txt` & `inceptionlabs.txt` isinya nama layanan + token
+# telanjang (ditemukan 2026-09-03 saat mau commit). Kunci TIDAK BOLEH masuk riwayat git —
+# sekali ter-commit ia tetap ada di riwayat walau filenya dihapus belakangan.
+# Tempat yang benar untuk kunci adalah `.env` (sudah diabaikan di atas).
+deepgram.txt
+inceptionlabs.txt
+*.key
+*_token.txt
+
+# Berkas kerja desain (Photoshop dll). Bukan aset yang dipakai runtime, ukurannya besar,
+# dan berubah tiap kali disentuh -> membengkakkan riwayat tanpa manfaat.
+*.psd
+
+# Video hasil uji di root proyek (mis. sample_deepgram_kdm_subtitled.mp4 @ 51 MB).
+# Sekelas dengan aturan sampleframe/*.mp4 di atas.
+sample_*.mp4
+
 # OS / editor
 .DS_Store
 Thumbs.db
