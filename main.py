@@ -409,6 +409,8 @@ def doctor() -> None:
         model_bundle_status,
         resolve_python_exe,
         whisperx_python_candidates,
+        ytdlp_cmd,
+        ytdlp_source,
     )
 
     ok = True
@@ -445,6 +447,19 @@ def doctor() -> None:
     else:
         print("[fail] ffprobe tidak ditemukan — bukan di ffmpeg/bin/ffprobe.exe maupun di PATH.")
         ok = False
+
+    # --- yt-dlp: CETAK perintah yang benar-benar dipakai. Jalur normal adalah MODUL
+    # (`python -m yt_dlp`) supaya tidak bergantung pada `.venv/Scripts/yt-dlp.exe`
+    # yang shebang-nya menunjuk mesin pengembang. Kalau modulnya tidak ada, kita
+    # jatuh ke nama telanjang `yt-dlp` di PATH — itu PERINGATAN, bukan kegagalan,
+    # karena bisa saja memang terpasang global. ---
+    yt = ytdlp_cmd()
+    if ytdlp_source() == "modul python":
+        print(f"[ok] yt-dlp: {' '.join(yt)}  (modul python)")
+    else:
+        print("[warn] yt-dlp: modul `yt_dlp` tidak ada di interpreter ini — "
+              "jatuh ke nama telanjang `yt-dlp` di PATH. Pasang dengan "
+              "`pip install yt-dlp` supaya tidak bergantung pada PATH.")
 
     # --- Bundel model WhisperX (installer terpisah ~3,9 GB) ---
     # Statusnya dari pemeriksaan BERKAS NYATA di cache yang aktif, bukan tebakan.

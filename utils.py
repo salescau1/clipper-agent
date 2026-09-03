@@ -37,6 +37,8 @@ from bundled_paths import (  # noqa: F401  (re-export untuk kompatibilitas)
     model_bundle_status,
     resolve_python_exe,
     resolve_whisperx_python,
+    ytdlp_cmd,
+    ytdlp_source,
 )
 from bundled_paths import check_ffmpeg as _check_ffmpeg_bundled
 

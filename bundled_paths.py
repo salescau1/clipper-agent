@@ -31,6 +31,7 @@ Tata letak yang diharapkan di hasil installer (C:\\Clipper Agent\\):
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import shutil
 import sys
@@ -191,6 +192,58 @@ def ffmpeg_source(root: str | Path | None = None) -> str:
 def check_ffmpeg(root: str | Path | None = None) -> bool:
     """True kalau ffmpeg tersedia (bawaan paket ATAU di PATH)."""
     return ffmpeg_path(root) is not None
+
+
+# ---------------------------------------------------------------------------
+# TUGAS 2b: yt-dlp — dipanggil sebagai MODUL, bukan biner
+# ---------------------------------------------------------------------------
+
+
+def ytdlp_available() -> bool:
+    """True kalau modul `yt_dlp` bisa diimpor oleh interpreter yang sedang jalan.
+
+    Memakai `importlib.util.find_spec` (bukan `import yt_dlp`) supaya pemeriksaan
+    ini MURAH: yt-dlp menarik banyak submodul, dan fungsi ini dipanggil setiap kali
+    perintah unduh dibangun.
+    """
+    try:
+        return importlib.util.find_spec("yt_dlp") is not None
+    except (ImportError, ValueError):
+        # ValueError bisa muncul kalau `yt_dlp` ada di sys.modules dengan __spec__ None.
+        return False
+
+
+def ytdlp_cmd() -> list[str]:
+    """Token AWAL perintah yt-dlp. Mengembalikan LIST, bukan satu string.
+
+    1. `[sys.executable, "-m", "yt_dlp"]` kalau modul `yt_dlp` bisa diimpor
+    2. `["yt-dlp"]`                        perilaku lama (mengandalkan PATH)
+
+    Kenapa `.exe` di `Scripts/` DIHINDARI: setiap launcher `.exe` yang dibuat pip
+    memuat shebang ABSOLUT ke interpreter mesin pembuatnya, mis.
+    `#!"C:\\Clipper Agent\\clipper\\.venv\\Scripts\\python.exe"`. Path itu terpatri di
+    dalam binernya, jadi di komputer lain launcher menunjuk interpreter yang tidak
+    ada dan Stage 2 mati. Installer karena itu TIDAK membawa folder `Scripts/`.
+
+    Kenapa `sys.executable` dan BUKAN `resolve_python_exe()`: pemanggilnya (Stage 1/2)
+    berjalan DI DALAM proses Python ini, jadi interpreter yang sedang jalan sudah pasti
+    yang benar dan sudah pasti punya `yt_dlp` di lingkungannya (itulah yang baru saja
+    diperiksa). `resolve_python_exe()` bisa menunjuk interpreter LAIN yang belum tentu
+    punya paketnya.
+
+    Karena hasilnya LIST, semua pemakaian harus di-unpack:
+        cmd = [*ytdlp_cmd(), "--dump-json", url]
+    Jangan pernah mengasumsikan token pertama satu elemen (mis. `cmd[0]`), karena
+    `python -m yt_dlp` adalah TIGA token.
+    """
+    if ytdlp_available():
+        return [sys.executable, "-m", "yt_dlp"]
+    return ["yt-dlp"]
+
+
+def ytdlp_source() -> str:
+    """Asal yt-dlp yang dipakai: 'modul python' atau 'PATH'. Untuk `main.py doctor`."""
+    return "modul python" if ytdlp_available() else "PATH"
 
 
 # ---------------------------------------------------------------------------
@@ -363,6 +416,9 @@ __all__ = [
     "ffprobe_exe",
     "ffmpeg_source",
     "check_ffmpeg",
+    "ytdlp_available",
+    "ytdlp_cmd",
+    "ytdlp_source",
     "bundled_models_dir",
     "apply_bundled_hf_home",
     "effective_hf_cache_dir",
