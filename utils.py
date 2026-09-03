@@ -20,6 +20,28 @@ from typing import Any, Callable, TypeVar
 
 from config import settings
 
+# Resolver berkas bawaan paket (installer portabel). Diimpor dari `bundled_paths`
+# supaya SATU implementasi dipakai bersama oleh GUI, CLI, dan Stage 4 di
+# `.whisperx-venv` — modul itu sengaja tanpa dependensi pihak ketiga sedangkan
+# `utils` menarik pydantic lewat `config`. Nama-nama ini di-EKSPOR ULANG di sini
+# supaya `from utils import check_ffmpeg` (pemakaian lama) tetap bekerja.
+from bundled_paths import (  # noqa: F401  (re-export untuk kompatibilitas)
+    apply_bundled_hf_home,
+    effective_hf_cache_dir,
+    ffmpeg_exe,
+    ffmpeg_path,
+    ffmpeg_source,
+    ffprobe_exe,
+    ffprobe_path,
+    model_bundle_message,
+    model_bundle_status,
+    resolve_python_exe,
+    resolve_whisperx_python,
+    ytdlp_cmd,
+    ytdlp_source,
+)
+from bundled_paths import check_ffmpeg as _check_ffmpeg_bundled
+
 T = TypeVar("T")
 
 # ---------------------------------------------------------------------------
@@ -150,8 +172,17 @@ def safe_filename(text: str, fallback: str = "clip") -> str:
 
 
 def check_ffmpeg() -> bool:
-    """Return True if an ``ffmpeg`` executable is available on PATH."""
-    return shutil.which("ffmpeg") is not None
+    """Return True if an ``ffmpeg`` executable is available.
+
+    Diarahkan ke helper terpusat `bundled_paths.check_ffmpeg()`: ia memeriksa
+    ffmpeg BAWAAN PAKET (`ffmpeg/bin/ffmpeg.exe`) dulu, lalu PATH. Fungsi ini
+    dulunya `shutil.which("ffmpeg") is not None` — perilaku itu masih jadi
+    lapisan kedua, jadi folder pengembangan tanpa `ffmpeg/` tidak berubah.
+
+    Definisi asli disimpan sebagai baris komentar ini, bukan sebagai fungsi
+    kedua, supaya tidak ada dua sumber kebenaran.
+    """
+    return _check_ffmpeg_bundled()
 
 
 def run_command(
@@ -212,7 +243,9 @@ def run_ffmpeg(
         raise RuntimeError(
             "FFmpeg is not installed or not on PATH. Install it and retry."
         )
-    return run_command(["ffmpeg", "-y", *args], logger=logger)
+    # `ffmpeg_exe()` = ffmpeg bawaan paket kalau ada, kalau tidak nama telanjang
+    # "ffmpeg" (perilaku lama yang mengandalkan PATH).
+    return run_command([ffmpeg_exe(), "-y", *args], logger=logger)
 
 
 # ---------------------------------------------------------------------------

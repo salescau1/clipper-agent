@@ -26,6 +26,7 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -104,6 +105,15 @@ except ImportError:
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+# Helper ffmpeg/ffprobe terpusat. `sys.path` disiapkan dulu karena file ini dipakai
+# lewat DUA jalur: sebagai bagian paket (`stages.stage5_final`, root sudah di path)
+# dan sebagai modul lepas (`import stage5_final` setelah sys.path menunjuk `stages/`,
+# lihat render_with_preset.py) — di jalur kedua root proyek belum tentu ada di path.
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from bundled_paths import ffmpeg_exe, ffprobe_exe  # noqa: E402
+
 DEFAULT_FRAME = ROOT / "assets" / "frame.png"
 DEFAULT_CLIPS_ROOT = ROOT / "output"
 DEFAULT_FINAL_ROOT = ROOT / "final"
@@ -144,7 +154,7 @@ def sanitize_component(value: str, fallback: str = "untitled") -> str:
 
 def run_ffmpeg(args: list[str]) -> None:
     proc = subprocess.run(
-        ["ffmpeg", "-hide_banner", "-y", *args],
+        [ffmpeg_exe(), "-hide_banner", "-y", *args],
         text=True,
         capture_output=True,
         encoding="utf-8",
@@ -158,7 +168,7 @@ def run_ffmpeg(args: list[str]) -> None:
 def probe_duration(path: Path) -> float:
     proc = subprocess.run(
         [
-            "ffprobe", "-v", "error",
+            ffprobe_exe(), "-v", "error",
             "-show_entries", "format=duration",
             "-of", "default=noprint_wrappers=1:nokey=1",
             str(path),

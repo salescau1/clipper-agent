@@ -11,6 +11,7 @@ import pytest
 
 from config import settings
 from models import CurationResult, ClipCandidate, ClipManifest, ClipManifestEntry
+from bundled_paths import ytdlp_cmd
 from stages.stage2_download import (
     _classify_download_error,
     _clip_filename,
@@ -239,7 +240,12 @@ class TestBuildYtDlpCommand:
             start_sec=10.0,
             end_sec=70.0,
         )
-        assert "yt-dlp" in cmd
+        # yt-dlp sekarang dipanggil sebagai MODUL (`python -m yt_dlp`) supaya tidak
+        # bergantung pada `.venv/Scripts/yt-dlp.exe` — shebang biner itu absolut ke
+        # mesin pengembang dan mati di komputer lain. `ytdlp_cmd()` mengembalikan LIST
+        # (3 token via modul, atau 1 token `yt-dlp` sebagai fallback PATH), jadi yang
+        # diperiksa adalah PREFIKS perintah, bukan keberadaan satu string "yt-dlp".
+        assert cmd[: len(ytdlp_cmd())] == ytdlp_cmd()
         assert "--download-sections" in cmd
         assert "*10.0-70.0" in cmd
         assert cmd[-1] == "https://youtu.be/test"
@@ -249,10 +255,69 @@ class TestBuildYtDlpCommand:
             url="https://youtu.be/test",
             temp_path=tmp_path / "video.mp4",
         )
-        assert "yt-dlp" in cmd
+        assert cmd[: len(ytdlp_cmd())] == ytdlp_cmd()
         assert "-f" in cmd
         assert str(tmp_path / "video.mp4") in cmd
         assert "https://youtu.be/test" in cmd
+
+
+class TestYtdlpCmdHelper:
+    """Kontrak `bundled_paths.ytdlp_cmd()` + pemasangan argumen opsional.
+
+    Kelas ini menjaga bug yang baru saja diperbaiki: perintah yt-dlp dulu memakai
+    `cmd.insert(3, "--extractor-args")`. Begitu token awal berubah dari 1 elemen
+    (`yt-dlp`) menjadi 3 elemen (`python -m yt_dlp`), indeks tetap itu menyelipkan
+    argumen ke TENGAH perintah (antara `-m` dan `yt_dlp`) dan yt-dlp tidak jalan.
+    """
+
+    def test_returns_list_not_string(self) -> None:
+        cmd = ytdlp_cmd()
+        assert isinstance(cmd, list)
+        assert all(isinstance(token, str) for token in cmd)
+        assert len(cmd) >= 1
+
+    def test_module_path_when_yt_dlp_importable(self) -> None:
+        """Di venv proyek `yt_dlp` terpasang, jadi jalurnya HARUS modul."""
+        import sys
+
+        import bundled_paths as bp
+
+        if not bp.ytdlp_available():
+            pytest.skip("modul yt_dlp tidak terpasang di interpreter ini")
+        assert ytdlp_cmd() == [sys.executable, "-m", "yt_dlp"]
+        assert bp.ytdlp_source() == "modul python"
+
+    def test_fallback_to_bare_name_when_module_missing(self) -> None:
+        """Tanpa modul `yt_dlp`, perilaku lama (nama telanjang di PATH) dipakai."""
+        import bundled_paths as bp
+
+        with patch.object(bp, "ytdlp_available", return_value=False):
+            assert bp.ytdlp_cmd() == ["yt-dlp"]
+            assert bp.ytdlp_source() == "PATH"
+
+    def test_extractor_args_stay_paired(self, tmp_path: Path) -> None:
+        """`--extractor-args` harus diikuti nilainya, dan `-f` diikuti selector."""
+        with patch("stages.stage2_download.settings") as mock_settings:
+            mock_settings.video_max_height = 1080
+            mock_settings.ytdlp_player_client = "android,ios"
+            for cmd in (
+                _build_ytdlp_command(
+                    url="https://youtu.be/test",
+                    output_path=tmp_path / "clip.mp4",
+                    start_sec=1.0,
+                    end_sec=2.0,
+                ),
+                _build_batch_ytdlp_command(
+                    url="https://youtu.be/test",
+                    temp_path=tmp_path / "full.mp4",
+                ),
+            ):
+                i = cmd.index("--extractor-args")
+                assert cmd[i + 1] == "youtube:player_client=android,ios"
+                j = cmd.index("-f")
+                assert cmd[j + 1].startswith("best")
+                # Prefiks perintah tidak boleh tersentuh argumen opsional.
+                assert cmd[: len(ytdlp_cmd())] == ytdlp_cmd()
 
 
 # ---------------------------------------------------------------------------
@@ -919,7 +984,9 @@ class TestBatchDownload:
             url="https://youtu.be/test",
             temp_path=tmp_path / "temp.mp4",
         )
-        assert "yt-dlp" in cmd
+        # Prefiks perintah = hasil `ytdlp_cmd()` (jalur modul `python -m yt_dlp`,
+        # atau fallback `yt-dlp` kalau modulnya tidak terpasang).
+        assert cmd[: len(ytdlp_cmd())] == ytdlp_cmd()
         assert str(tmp_path / "temp.mp4") in cmd
         assert "https://youtu.be/test" in cmd
 

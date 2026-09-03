@@ -47,6 +47,28 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
+# ---------------------------------------------------------------------------
+# HF_HOME: cache model WhisperX di dalam folder aplikasi (installer portabel)
+# ---------------------------------------------------------------------------
+# Disetel DI SINI, di tingkat modul, bukan di dalam fungsi. Alasannya dua:
+#   1. `whisperx` dan `faster_whisper` diimpor DI DALAM fungsi (agar `.venv` yang
+#      tidak punya paket itu tidak ikut gagal), jadi tingkat modul PASTI berjalan
+#      lebih dulu daripada import mana pun yang membaca HF_HOME.
+#   2. File ini dijalankan lewat DUA jalur — diimpor dari `.venv` (`stages.stage4_subtitles`)
+#      DAN sebagai subprocess oleh `.whisperx-venv` (`python stages/stage4_subtitles.py ...`
+#      dari stage4_batch.py). Baris di tingkat modul kena KEDUANYA; kalau ditaruh di
+#      dalam `run()` saja, jalur CLI (yang dipakai produksi) tidak kebagian.
+#
+# `apply_bundled_hf_home()` hanya menyetel kalau folder `<root>/models` ADA. Kalau
+# tidak ada, TIDAK menyetel apa pun sehingga cache tetap di ~/.cache/huggingface —
+# komputer pengembangan yang modelnya sudah ada di sana tidak mengunduh ulang ~4 GB.
+from bundled_paths import apply_bundled_hf_home  # noqa: E402
+
+_BUNDLED_HF_HOME = apply_bundled_hf_home(_PROJECT_ROOT)
+
+# Helper ffmpeg/ffprobe terpusat (bawaan paket -> nama telanjang/PATH).
+from bundled_paths import ffmpeg_exe, ffprobe_exe  # noqa: E402
+
 # Lazy imports to avoid requiring project deps (pydantic, etc.) in environments
 # that only have whisperx (e.g. when called via stage4_batch.py in whisperx-venv).
 def _lazy_config():
@@ -528,7 +550,7 @@ def _extract_audio_for_whisperx(input_path: Path, output_path: Path) -> bool:
     try:
         result = subprocess.run(
             [
-                "ffmpeg", "-y", "-i", str(input_path),
+                ffmpeg_exe(), "-y", "-i", str(input_path),
                 "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1",
                 str(output_path)
             ],
@@ -1504,7 +1526,7 @@ def run(
         if video_duration <= 0:
             try:
                 result = subprocess.run(
-                    ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                    [ffprobe_exe(), "-v", "error", "-show_entries", "format=duration",
                      "-of", "default=noprint_wrappers=1:nokey=1", str(input_path)],
                     capture_output=True,
                     text=True,

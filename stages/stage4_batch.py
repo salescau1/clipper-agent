@@ -17,6 +17,25 @@ import subprocess
 import sys
 from pathlib import Path
 
+# ---------------------------------------------------------------------------
+# HF_HOME: cache model WhisperX di dalam folder aplikasi (installer portabel)
+# ---------------------------------------------------------------------------
+# Skrip ini dijalankan sebagai FILE (`python stages/stage4_batch.py`), jadi sys.path[0]
+# adalah folder `stages/` — root proyek harus ditambahkan sendiri sebelum
+# `bundled_paths` bisa diimpor.
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
+from bundled_paths import apply_bundled_hf_home  # noqa: E402
+
+# Diset di tingkat modul supaya PASTI terjadi sebelum subprocess Stage 4 dibuat
+# (subprocess mewarisi os.environ induknya). stage4_subtitles.py juga memanggil ini
+# sendiri — nilai yang sudah ada dihormati, jadi dua kali panggil tetap konsisten dan
+# jalur mana pun yang jalan sendirian tetap dapat cache yang benar.
+# Kalau folder `<root>/models` TIDAK ada, tidak ada yang diset (cache tetap ~/.cache).
+_BUNDLED_HF_HOME = apply_bundled_hf_home(_PROJECT_ROOT)
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()

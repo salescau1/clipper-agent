@@ -33,8 +33,21 @@ assets/sfx/
 sampleframe/*.mp4
 sampleframe/*.srt
 
+# Berkas bawaan installer portabel. Ini DIBAWA installer, bukan bagian sumber:
+# `python-embed/` & `python-embed-whisperx/` (Python embeddable), `ffmpeg/` (biner
+# ffmpeg+ffprobe), dan `models/` (cache HuggingFace ~3,9 GB dari bundel model ke-2).
+# Kalau folder-folder ini kebetulan ada di folder pengembangan (mis. saat menguji
+# resolver di bundled_paths.py), jangan sampai ikut ter-commit.
+python-embed/
+python-embed-whisperx/
+ffmpeg/
+models/
+
 # Karantina hasil tools/cleanup.py (bisa dihapus manual kalau sudah yakin)
 _trash_*/
+
+# Isi folder karantina TIDAK boleh masuk git walau namanya kebetulan cocok
+# dengan pola yang di-track (mis. _trash_*/tests/, _trash_*/tools/).
 
 # KUNCI API mentah. `deepgram.txt` & `inceptionlabs.txt` isinya nama layanan + token
 # telanjang (ditemukan 2026-09-03 saat mau commit). Kunci TIDAK BOLEH masuk riwayat git —

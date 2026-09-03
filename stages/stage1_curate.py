@@ -39,6 +39,11 @@ from utils import (
     safe_remove,
     setup_logging,
 )
+# yt-dlp dipanggil sebagai MODUL Python lewat helper terpusat: `ytdlp_cmd()`
+# mengembalikan LIST ([sys.executable, "-m", "yt_dlp"] kalau modulnya ada, kalau
+# tidak ["yt-dlp"] seperti perilaku lama). Selalu di-unpack dengan `*` — jangan
+# diperlakukan sebagai satu token.
+from bundled_paths import ytdlp_cmd
 
 logger = get_logger("stage1")
 
@@ -76,7 +81,7 @@ def fetch_video_metadata(video_id: str) -> dict[str, Any]:
     try:
         result = subprocess.run(
             [
-                "yt-dlp",
+                *ytdlp_cmd(),
                 "--dump-json",
                 "--no-download",
                 "--skip-download",
@@ -207,7 +212,7 @@ def _fetch_whisper_transcript(video_id: str, url: str) -> list[TranscriptSegment
         logger.info("Downloading audio for Whisper transcription...")
         subprocess.run(
             [
-                "yt-dlp",
+                *ytdlp_cmd(),
                 "-f", "bestaudio/best",
                 "-o", str(temp_audio),
                 "--force-overwrites",

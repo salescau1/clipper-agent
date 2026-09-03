@@ -21,6 +21,11 @@ from typing import Any
 from config import settings
 from models import CurationResult, ClipManifest, ClipManifestEntry
 from utils import get_logger, parse_time, format_time, run_command, safe_remove, setup_logging, ensure_dirs
+# Helper terpusat: ffmpeg/ffprobe BAWAAN PAKET (ffmpeg/bin/*.exe) kalau ada, kalau
+# tidak nama telanjang "ffmpeg"/"ffprobe" seperti sebelumnya (mengandalkan PATH).
+# `ytdlp_cmd()` mengembalikan LIST ([python, -m, yt_dlp] atau ["yt-dlp"]) — selalu
+# di-unpack dengan `*`, jangan diperlakukan sebagai satu token.
+from bundled_paths import ffmpeg_exe, ffprobe_exe, ytdlp_cmd
 
 logger = get_logger("stage2")
 
@@ -240,7 +245,10 @@ def _get_video_metadata(url: str) -> dict[str, Any]:
     try:
         result = run_command(
             [
-                "yt-dlp",
+                # yt-dlp dipanggil sebagai MODUL Python (`python -m yt_dlp`) supaya
+                # tidak bergantung pada `.venv/Scripts/yt-dlp.exe` — launcher itu
+                # memuat shebang absolut ke mesin pengembang dan mati di komputer lain.
+                *ytdlp_cmd(),
                 "--dump-json",
                 "--no-download",
                 "--skip-download",
@@ -267,7 +275,7 @@ def _get_video_duration(url: str) -> float:
     try:
         result = run_command(
             [
-                "yt-dlp",
+                *ytdlp_cmd(),
                 "--dump-json",
                 "--no-download",
                 "--skip-download",
@@ -307,19 +315,28 @@ def _build_ytdlp_command(
     if format_selector is None:
         format_selector = _default_format_selector()
 
+    # Argumen extractor bersifat opsional; disusun DI SINI lalu di-unpack, bukan
+    # dengan `cmd.insert(3, ...)` seperti dulu. Alasannya: token awal yt-dlp sekarang
+    # bisa berjumlah 1 (`yt-dlp`) atau 3 (`python -m yt_dlp`), jadi indeks tetap
+    # akan menyelipkan argumen ke tempat yang salah.
+    extractor_args: list[str] = []
+    if settings.ytdlp_player_client:
+        extractor_args = [
+            "--extractor-args",
+            f"youtube:player_client={settings.ytdlp_player_client}",
+        ]
+
     cmd = [
-        "yt-dlp",
+        *ytdlp_cmd(),
         "--no-warnings",
         "--no-playlist",
+        *extractor_args,
         "-f", format_selector,
         "--merge-output-format", "mp4",
         "--download-sections", section,
         "-o", str(output_path),
         url,
     ]
-    if settings.ytdlp_player_client:
-        cmd.insert(3, "--extractor-args")
-        cmd.insert(4, f"youtube:player_client={settings.ytdlp_player_client}")
     return cmd
 
 
@@ -412,18 +429,25 @@ def _build_batch_ytdlp_command(
     if format_selector is None:
         format_selector = _default_format_selector()
 
+    # Sama seperti `_build_ytdlp_command`: argumen extractor di-unpack, bukan
+    # diselipkan lewat indeks tetap (token awal bisa 1 atau 3 elemen).
+    extractor_args: list[str] = []
+    if settings.ytdlp_player_client:
+        extractor_args = [
+            "--extractor-args",
+            f"youtube:player_client={settings.ytdlp_player_client}",
+        ]
+
     cmd = [
-        "yt-dlp",
+        *ytdlp_cmd(),
         "--no-warnings",
         "--no-playlist",
+        *extractor_args,
         "-f", format_selector,
         "--merge-output-format", "mp4",
         "-o", str(temp_path),
         url,
     ]
-    if settings.ytdlp_player_client:
-        cmd.insert(3, "--extractor-args")
-        cmd.insert(4, f"youtube:player_client={settings.ytdlp_player_client}")
     return cmd
 
 
@@ -448,7 +472,7 @@ def _split_with_ffmpeg(
     for clip, start, end, extract_end, filename, expected_path in pending:
         duration = extract_end - start
         cmd = [
-            "ffmpeg",
+            ffmpeg_exe(),
             "-y",
             "-ss", str(start),
             "-i", str(source_path),
@@ -636,7 +660,7 @@ def _validate_clip_file(path: Path, expected_duration: float, max_height: int = 
     try:
         result = run_command(
             [
-                "ffprobe",
+                ffprobe_exe(),
                 "-v", "error",
                 "-select_streams", "v:0",
                 "-show_entries", "stream=codec_type,codec_name,width,height,duration",
@@ -661,7 +685,7 @@ def _validate_clip_file(path: Path, expected_duration: float, max_height: int = 
         # Check for audio stream
         result_audio = run_command(
             [
-                "ffprobe",
+                ffprobe_exe(),
                 "-v", "error",
                 "-select_streams", "a:0",
                 "-show_entries", "stream=codec_type,codec_name",
