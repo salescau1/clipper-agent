@@ -163,11 +163,16 @@ def _stage4_batch(
     akan tertinggal saat ada perbaikan.
     """
     project_root = Path(__file__).resolve().parent
-    whisperx_python = project_root / ".whisperx-venv" / "Scripts" / "python.exe"
+    # Interpreter Stage 4 dicari lewat resolver terpusat:
+    #   1. python-embed-whisperx/python.exe   (dibawa installer portabel)
+    #   2. .whisperx-venv/Scripts/python.exe  (perilaku lama di folder pengembangan)
+    # Kalau tidak ada satu pun, `resolve_whisperx_python()` melempar RuntimeError yang
+    # MENYEBUT kedua path tersebut — bukan sekadar 'not found'.
+    from bundled_paths import resolve_whisperx_python
+
+    whisperx_python = resolve_whisperx_python(project_root)
     batch_script = project_root / "stages" / "stage4_batch.py"
 
-    if not whisperx_python.exists():
-        raise RuntimeError(f"WhisperX Python not found: {whisperx_python}")
     if not batch_script.exists():
         raise RuntimeError(f"Stage 4 batch script not found: {batch_script}")
 
@@ -397,20 +402,66 @@ def stage5(
 def doctor() -> None:
     """Validate configuration and required system dependencies."""
     _bootstrap()
-    from utils import check_ffmpeg
+    from bundled_paths import (
+        ffmpeg_path,
+        ffmpeg_source,
+        ffprobe_path,
+        model_bundle_status,
+        resolve_python_exe,
+        whisperx_python_candidates,
+    )
 
     ok = True
+    project_root = Path(__file__).resolve().parent
 
     if settings.gemini_api_key:
         print("[ok] GEMINI_API_KEY is set.")
     else:
         print("[warn] GEMINI_API_KEY is not set (Stage 1 will fail).")
 
-    if check_ffmpeg():
-        print("[ok] ffmpeg found on PATH.")
+    # --- Interpreter yang benar-benar dipakai (bawaan paket vs venv pengembangan) ---
+    print(f"[ok] Python utama: {resolve_python_exe(project_root)}")
+    wx = next((c for c in whisperx_python_candidates(project_root) if c.exists()), None)
+    if wx is not None:
+        print(f"[ok] Python WhisperX (Stage 4): {wx}")
     else:
-        print("[fail] ffmpeg not found on PATH.")
+        print("[fail] Python WhisperX (Stage 4) tidak ditemukan. Dicari di:")
+        for candidate in whisperx_python_candidates(project_root):
+            print(f"       - {candidate}")
         ok = False
+
+    # --- ffmpeg/ffprobe: CETAK PATH-nya, bukan cuma ada/tidak. Ini yang dipakai orang
+    # untuk mendiagnosis di komputer lain (bawaan paket atau dari PATH). ---
+    ff = ffmpeg_path(project_root)
+    if ff is not None:
+        print(f"[ok] ffmpeg: {ff}  ({ffmpeg_source(project_root)})")
+    else:
+        print("[fail] ffmpeg tidak ditemukan — bukan di ffmpeg/bin/ffmpeg.exe maupun di PATH.")
+        ok = False
+
+    fp = ffprobe_path(project_root)
+    if fp is not None:
+        print(f"[ok] ffprobe: {fp}")
+    else:
+        print("[fail] ffprobe tidak ditemukan — bukan di ffmpeg/bin/ffprobe.exe maupun di PATH.")
+        ok = False
+
+    # --- Bundel model WhisperX (installer terpisah ~3,9 GB) ---
+    # Statusnya dari pemeriksaan BERKAS NYATA di cache yang aktif, bukan tebakan.
+    st = model_bundle_status(settings.whisper_model, project_root)
+    print(f"[ok] Cache model aktif: {st['cache_dir']}"
+          f"  ({'bawaan paket' if st['bundled'] else 'profil user (~/.cache)'})")
+    for kunci, label in (("transcribe", "Model transkripsi"), ("align", "Model penyelaras")):
+        info = st[kunci]
+        tanda = "ok" if info["ok"] else "warn"
+        keadaan = "ADA" if info["ok"] else "BELUM"
+        print(f"[{tanda}] {label} ({info['repo']}): {keadaan}")
+    if not st["ok"]:
+        # PERINGATAN, bukan kegagalan: WhisperX bisa mengunduh sendiri kalau ada
+        # internet, jadi `doctor` tidak boleh exit 1 hanya karena ini.
+        print("[warn] Bundel model WhisperX belum terpasang — pasang Clipper-Models "
+              "terlebih dahulu, atau biarkan aplikasi mengunduhnya otomatis "
+              "(butuh internet, ~3,9 GB).")
 
     for directory in settings.runtime_dirs:
         print(f"[ok] directory ready: {directory}")

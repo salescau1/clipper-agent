@@ -40,7 +40,20 @@ from PySide6.QtWidgets import (
 
 APP_NAME = "Clipper Agent"
 PROJECT_ROOT = Path(__file__).resolve().parent
-PYTHON_EXE = PROJECT_ROOT / ".venv" / "Scripts" / "python.exe"
+# Interpreter Python untuk QProcess (main.py & render_with_preset.py).
+# Urutan prioritas ada di `bundled_paths.resolve_python_exe()`:
+#   1. python-embed/python.exe        (dibawa installer portabel)
+#   2. .venv/Scripts/python.exe       (perilaku lama di folder pengembangan)
+#   3. sys.executable                 (jaring terakhir)
+# Di hasil installer `.venv` MASIH ADA tapi `pyvenv.cfg`-nya menunjuk Python yang
+# tidak terpasang di komputer tujuan, jadi python-embed HARUS menang.
+from bundled_paths import (  # noqa: E402  (butuh PROJECT_ROOT di atas)
+    MODEL_BUNDLE_WARNING,
+    model_bundle_status,
+    resolve_python_exe,
+)
+
+PYTHON_EXE = resolve_python_exe(PROJECT_ROOT)
 MAIN_PY = PROJECT_ROOT / "main.py"
 CUSTOMIZER_HTML = PROJECT_ROOT / "sketches" / "clipper-ui-mockup" / "index.html"
 PRESETS_DIR = PROJECT_ROOT / "assets" / "presets"
@@ -1180,6 +1193,11 @@ class ClipperWindow(QMainWindow):
         for i, b in enumerate(self.run_nav):
             b.setChecked(i == idx)
         self.run_stack.setCurrentIndex(idx)
+        if idx == 0:
+            # Diperiksa ulang setiap kali panel Jalankan dibuka: bundel model bisa
+            # dipasang sambil GUI terbuka, dan peringatan yang basi lebih buruk daripada
+            # tidak ada peringatan. Pemeriksaannya murah (beberapa `is_file()`).
+            self.refresh_model_warning()
 
     def _update_run_nav(self) -> None:
         """Tempelkan status ke label sidebar.
@@ -1313,6 +1331,18 @@ class ClipperWindow(QMainWindow):
         self.themes_card = ThemesCard()
         sl.addWidget(self.themes_card)
         layout.addWidget(set_card)
+
+        # --- Peringatan bundel model WhisperX (Tugas 4) ---
+        # Hasil pemeriksaan BERKAS NYATA di cache yang aktif — bukan indikator hiasan.
+        # Ditaruh di atas tombol Jalankan supaya terbaca sebelum pipeline dimulai.
+        # Ini PERINGATAN, bukan larangan: WhisperX memang bisa mengunduh sendiri, jadi
+        # tombol Jalankan TIDAK dimatikan karena ini (lihat `_refresh_run_enabled`).
+        self.model_warn_lbl = QLabel("")
+        self.model_warn_lbl.setObjectName("statusWarn")
+        self.model_warn_lbl.setWordWrap(True)
+        self.model_warn_lbl.setVisible(False)
+        layout.addWidget(self.model_warn_lbl)
+        self.refresh_model_warning()
 
         # Tombol Jalankan berdiri sendiri di bawah, bukan berdesakan di baris URL.
         act = QHBoxLayout()
@@ -2249,6 +2279,19 @@ class ClipperWindow(QMainWindow):
         for garis in str(judul).splitlines():
             self.log(garis)
 
+        # Peringatan bundel model: diperiksa ULANG saat pipeline mulai (installer model
+        # bisa dipasang sambil GUI terbuka) dan dituliskan ke log supaya juga terlihat
+        # dari panel Progres, bukan hanya di panel Jalankan.
+        # HANYA untuk perintah yang benar-benar menjalankan Stage 4 — mode Manual
+        # (`stage1` saja) tidak menyentuh WhisperX, jadi memperingatkan di situ cuma
+        # kebisingan yang membuat peringatan sungguhan diabaikan.
+        self.refresh_model_warning()
+        perintah = args[0] if args else ""
+        if perintah in ("run", "continue-from", "stage4") and not getattr(
+            self, "_model_bundle_ok", True
+        ):
+            self.log(MODEL_BUNDLE_WARNING, "warn")
+
         self._set_progress(3, "Memulai...")
         self._last_output_dir = None
         self._elapsed.restart()
@@ -2313,6 +2356,46 @@ class ClipperWindow(QMainWindow):
             "" if valid else
             "Rentang belum valid: kotak merah menandai MAX yang lebih kecil dari MIN."
         )
+
+    def refresh_model_warning(self) -> None:
+        """Perbarui peringatan bundel model WhisperX dari pemeriksaan berkas NYATA.
+
+        Sumbernya `bundled_paths.model_bundle_status()`: ia melihat folder cache yang
+        BENAR-BENAR akan dipakai Stage 4 (PROJECT_ROOT/models kalau ada, kalau tidak
+        ~/.cache/huggingface/hub) dan mensyaratkan berkas bobot model ada di sana —
+        bukan sekadar foldernya ada. Kalau lengkap, label disembunyikan.
+        """
+        lbl = getattr(self, "model_warn_lbl", None)
+        if lbl is None:
+            return
+        try:
+            st = model_bundle_status(self._whisper_model_name(), PROJECT_ROOT)
+        except Exception:  # noqa: BLE001  (label peringatan tidak boleh menjatuhkan GUI)
+            lbl.setVisible(False)
+            return
+        self._model_bundle_ok = bool(st["ok"])
+        if st["ok"]:
+            lbl.setVisible(False)
+            lbl.setText("")
+            return
+        lbl.setText(
+            "⚠  " + MODEL_BUNDLE_WARNING
+            + f"\n     Belum ada: {', '.join(st['missing'])}"
+            + f"\n     Cache yang diperiksa: {st['cache_dir']}"
+        )
+        lbl.setToolTip(f"Cache aktif: {st['cache_dir']}")
+        lbl.setVisible(True)
+
+    @staticmethod
+    def _whisper_model_name() -> str:
+        """Ukuran model faster-whisper dari .env (WHISPER_MODEL), default 'medium'.
+
+        Dibaca dari `.env` lewat `read_env_dict()`, bukan `config.settings`: GUI
+        sengaja tidak mengimpor `config` (pydantic) supaya tetap ringan, dan nilai
+        default di sini harus sama dengan `Settings.whisper_model`.
+        """
+        nilai = str(read_env_dict().get("WHISPER_MODEL", "") or "").strip()
+        return nilai or "medium"
 
     def _kill_process_tree(self, pid: int) -> bool:
         """Matikan proses beserta SELURUH anak-cucunya (Windows).

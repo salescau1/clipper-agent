@@ -21,6 +21,9 @@ from typing import Any
 from config import settings
 from models import CurationResult, ClipManifest, ClipManifestEntry
 from utils import get_logger, parse_time, format_time, run_command, safe_remove, setup_logging, ensure_dirs
+# Helper terpusat: ffmpeg/ffprobe BAWAAN PAKET (ffmpeg/bin/*.exe) kalau ada, kalau
+# tidak nama telanjang "ffmpeg"/"ffprobe" seperti sebelumnya (mengandalkan PATH).
+from bundled_paths import ffmpeg_exe, ffprobe_exe
 
 logger = get_logger("stage2")
 
@@ -448,7 +451,7 @@ def _split_with_ffmpeg(
     for clip, start, end, extract_end, filename, expected_path in pending:
         duration = extract_end - start
         cmd = [
-            "ffmpeg",
+            ffmpeg_exe(),
             "-y",
             "-ss", str(start),
             "-i", str(source_path),
@@ -636,7 +639,7 @@ def _validate_clip_file(path: Path, expected_duration: float, max_height: int = 
     try:
         result = run_command(
             [
-                "ffprobe",
+                ffprobe_exe(),
                 "-v", "error",
                 "-select_streams", "v:0",
                 "-show_entries", "stream=codec_type,codec_name,width,height,duration",
@@ -661,7 +664,7 @@ def _validate_clip_file(path: Path, expected_duration: float, max_height: int = 
         # Check for audio stream
         result_audio = run_command(
             [
-                "ffprobe",
+                ffprobe_exe(),
                 "-v", "error",
                 "-select_streams", "a:0",
                 "-show_entries", "stream=codec_type,codec_name",

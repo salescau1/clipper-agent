@@ -35,6 +35,9 @@ from utils import (
     safe_remove,
     setup_logging,
 )
+# Helper terpusat ffprobe (bawaan paket -> PATH). `run_ffmpeg` di utils sudah
+# memakai `ffmpeg_exe()` di dalamnya, jadi di sini hanya ffprobe yang perlu.
+from bundled_paths import ffprobe_exe
 
 logger = get_logger("stage3")
 
@@ -125,7 +128,7 @@ def _probe_media(path: Path) -> dict[str, Any]:
     """
     result = run_command(
         [
-            "ffprobe",
+            ffprobe_exe(),
             "-v", "error",
             "-show_entries", "format=duration",
             "-show_entries", "stream=codec_type,codec_name,width,height",
