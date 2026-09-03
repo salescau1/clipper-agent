@@ -36,6 +36,9 @@ sampleframe/*.srt
 # Karantina hasil tools/cleanup.py (bisa dihapus manual kalau sudah yakin)
 _trash_*/
 
+# Isi folder karantina TIDAK boleh masuk git walau namanya kebetulan cocok
+# dengan pola yang di-track (mis. _trash_*/tests/, _trash_*/tools/).
+
 # KUNCI API mentah. `deepgram.txt` & `inceptionlabs.txt` isinya nama layanan + token
 # telanjang (ditemukan 2026-09-03 saat mau commit). Kunci TIDAK BOLEH masuk riwayat git —
 # sekali ter-commit ia tetap ada di riwayat walau filenya dihapus belakangan.
