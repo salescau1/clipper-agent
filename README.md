@@ -1,97 +1,170 @@
-# Clipper
+# Clipper Agent
 
-A simple, modular YouTube-to-short-video pipeline. It curates the best clips
-from a YouTube video, downloads only the needed time ranges, renders them as
-9:16 vertical videos, and burns in animated subtitles.
+Aplikasi desktop (PySide6) yang mengubah satu video YouTube menjadi beberapa klip
+vertikal 9:16 bersubtitle, siap unggah ke Shorts/TikTok/Reels.
 
-## Pipeline
+Dipakai lewat **GUI**. CLI tetap ada di baliknya (GUI memanggilnya), jadi setiap
+tahap masih bisa dijalankan sendiri kalau perlu.
+
+## Menjalankan
+
+```powershell
+.\run_clipper_gui.ps1
+```
+
+atau langsung:
+
+```powershell
+.\.venv\Scripts\python.exe .\clipper_gui.py
+```
+
+Tab yang tersedia: **Run** (jalankan pipeline), **Customize** (atur tampilan
+output lalu simpan sebagai Theme), **History**, **Settings**.
+
+## Alur pipeline
 
 ```
-YouTube URL
+URL YouTube
     │
     ▼
-[Stage 1] Curate clips (transcript + Gemini)   → output/curation.json
+[Stage 1] Kurasi klip (transkrip + LLM)      → output/<creator>/<judul>/<video_id>.json
     │
     ▼
-[Stage 2] Download clip ranges (yt-dlp)        → output/clips/raw/
+[Stage 2] Unduh rentang klip (yt-dlp)        → output/<creator>/<judul>/*.mp4 + manifest.json
     │
     ▼
-[Stage 3] Render 9:16 vertical (FFmpeg)        → output/clips/rendered/
+[Stage 3] DILEWATI (digantikan Stage 5)
     │
     ▼
-[Stage 4] Burn subtitles (Whisper + ASS)       → output/clips/final/
+[Stage 4] Subtitle (faster-whisper + WhisperX) → *.srt, 1 kata per entri
+    │
+    ▼
+[Stage 5] Komposisi akhir 9:16 (FFmpeg)      → final/<creator>/<judul>/*.mp4 + caption.txt
 ```
 
-## Requirements
+Tiga hal yang menentukan cara kerja sistem ini:
 
-- Python 3.11+
-- [FFmpeg](https://ffmpeg.org/) on your PATH
-- A Gemini API key (for Stage 1)
+- **Stage 4 menulis SRT 1 kata per entri.** Kerapatan tampilan (1/3/5 kata) diatur
+  di Theme dan dirakit ulang saat render, jadi mengubah tampilan tidak perlu
+  transkripsi ulang (~2 menit per klip).
+- **Satu mesin teks untuk preview dan render.** Subtitle, headline, dan watermark
+  semuanya digambar `stages/text_engine.py` (Pillow) — preview di Customize dan
+  hasil MP4 adalah gambar yang sama, bukan dua pendekatan berbeda.
+- **Setiap tahap resumable.** Statusnya = ada atau tidaknya berkas hasil. Jalankan
+  ulang setelah gagal di tengah; yang sudah jadi di-SKIP.
 
-## Setup
+## Dua virtualenv (penting)
 
-```bash
-cd clipper
-python -m venv .venv
-.venv\Scripts\activate          # Windows
-pip install -e ".[dev]"
-copy .env.example .env           # then edit .env with your API key
-```
+| Venv | Dipakai untuk |
+|---|---|
+| `.venv` | GUI, CLI, Stage 1/2/5 |
+| `.whisperx-venv` | **hanya Stage 4** — dijalankan sebagai subprocess |
 
-## Usage
+Dependensi WhisperX bentrok dengan `.venv`, jadi keduanya sengaja dipisah.
+Konsekuensinya: perubahan pada `stages/stage4_subtitles.py` harus diuji dengan
+`.whisperx-venv/Scripts/python.exe`, karena itulah yang benar-benar menjalankannya
+di produksi.
 
-Run the full pipeline:
+## Kebutuhan sistem
 
-```bash
-python main.py run --url "https://youtu.be/..."
-```
+- Python 3.11+ (kedua venv sudah tersiapkan di folder ini)
+- [FFmpeg](https://ffmpeg.org/) di PATH
+- API key untuk kurasi Stage 1, diisi di `.env`
+- Model WhisperX (~4,3 GB) diunduh otomatis ke `~/.cache/huggingface/hub` pada
+  pemakaian pertama
 
-Run a single stage:
+## Konfigurasi
 
-```bash
-python main.py stage1 --url "https://youtu.be/..."
-python main.py stage2
-python main.py stage3
-python main.py stage4
-```
+Semua setelan dibaca dari `.env` (contoh di `.env.example`). Tidak ada rahasia
+yang ditulis di kode.
 
-Validate configuration and dependencies:
+| Variabel | Default | Kegunaan |
+|---|---|---|
+| `GEMINI_API_KEY` | *(kosong)* | Kunci LLM untuk kurasi Stage 1 |
+| `LLM_BASE_URL` | `http://127.0.0.1:20128/v1` | Endpoint OpenAI-compatible |
+| `GEMINI_MODEL` | `gemini-2.0-flash` | Model kurasi |
+| `WHISPER_MODEL` | `medium` | Model transkripsi. Jangan turunkan ke `small` untuk audio Sunda/lapangan — sering salah dengar dan memicu looping |
+| `SUBTITLE_LANG_TAGS` | `id` | Bantuan kosakata WhisperX (`id`, `su`, `en`) |
+| `CLIP_MIN_SECONDS` | `60` | Durasi klip minimal |
+| `CLIP_MAX_SECONDS` | `240` | Durasi klip maksimal |
+| `YTDLP_PLAYER_CLIENT` | *(kosong)* | Spoofing klien yt-dlp |
 
-```bash
-python main.py doctor
-```
+### Jumlah klip: MIN dan MAX
 
-## Configuration
+Kolom `Klip` di tab Run adalah **rentang pencarian**, bukan jaminan:
 
-All settings come from environment variables (see `.env.example`). No secrets
-are hardcoded. Key variables:
+- **MAX** = jumlah yang diminta ke LLM
+- **MIN** = ambang peringatan. Kalau hasilnya kurang, pipeline **tetap lanjut**
+  dengan peringatan berangka — tidak berhenti dan tidak mengulang otomatis
 
-| Variable            | Default            | Purpose                          |
-|---------------------|--------------------|----------------------------------|
-| `GEMINI_API_KEY`    | *(empty)*          | Gemini API key (Stage 1)         |
-| `GEMINI_MODEL`      | `gemini-2.0-flash` | Gemini model for curation        |
-| `WHISPER_MODEL`     | `small`            | Whisper model for STT            |
-| `TARGET_HEIGHT`     | `1080`             | Vertical render height           |
-| `YTDLP_PLAYER_CLIENT` | `android,ios`    | yt-dlp client spoofing           |
+Alasannya hasil LLM tidak bisa dipaksa, dan filter tumpang-tindih 50% masih
+memotong lagi sesudahnya. Batas atas yang benar-benar mengikat justru durasi
+minimal: **maksimum klip = durasi video ÷ durasi minimal**. Video 15 menit dengan
+minimal 60s mustahil menghasilkan 20 klip.
 
-## Tests
+### Preferred Languages
 
-```bash
-pytest
-```
+Centang `ENGLISH / INDONESIA / SUNDANESE` di tab Run hanya menyusun *initial
+prompt* (bantuan kosakata) untuk WhisperX. Bahasa transkripsi dan penyelarasan
+timestamp **tetap Indonesia**: WhisperX tidak punya model forced-alignment untuk
+bahasa Sunda, dan memaksanya akan menghilangkan timestamp per kata yang menjadi
+fondasi SRT 1-kata.
 
-## Project Layout
+## Kinerja
+
+`.whisperx-venv` memakai torch versi **CPU**. Stage 4 karena itu berjalan sekitar
+2,5x durasi audio. Terukur pada 10 klip (30,6 menit audio):
+
+| Tahap | Waktu |
+|---|---|
+| Stage 2 unduh | 13 menit |
+| Stage 4 subtitle | 77 menit |
+| Stage 5 render | 34 menit |
+
+Memasang torch CUDA (butuh GPU NVIDIA) akan memotong Stage 4 ke kisaran 8 menit.
+
+## Struktur folder
 
 ```
 clipper/
-├── main.py                 # CLI entry point & orchestration
-├── config.py               # Central settings (env-driven)
-├── models.py               # Pydantic data contracts between stages
-├── utils.py                # Generic helpers (logging, time, ffmpeg, retry)
+├── clipper_gui.py           # Aplikasi GUI (PySide6) — titik masuk utama
+├── gui_review.py            # Panel review klip + kartu setelan/THEMES
+├── gui_logparse.py          # Parsing log pipeline untuk tab Run
+├── main.py                  # CLI & orkestrasi tahap
+├── config.py                # Setelan terpusat (dibaca dari .env)
+├── models.py                # Kontrak data antar tahap (pydantic)
+├── utils.py                 # Helper umum (logging, waktu, ffmpeg, retry)
+├── render_with_preset.py    # Render cepat memakai preset tertentu
 ├── stages/
-│   ├── stage1_curate.py
-│   ├── stage2_download.py
-│   ├── stage3_render.py
-│   └── stage4_subtitles.py
-└── tests/
+│   ├── stage1_curate.py     stage2_download.py    stage3_render.py (dilewati)
+│   ├── stage4_subtitles.py  stage4_batch.py       stage5_final.py
+│   ├── stage5_preset.py     stage5_layout.py      stage5_design.py
+│   ├── stage5_fonts.py      text_engine.py        subtitle_engine.py
+│   ├── frame_library.py     font_library.py       preset_library.py
+│   └── caption_txt.py
+├── sketches/clipper-ui-mockup/index.html   # Halaman tab Customize (QWebEngine)
+├── assets/                  # frames, fonts, overlays, presets/theme, sfx
+├── cache/                   # transkrip YouTube + cache alignment (JANGAN dihapus)
+├── temp/  logs/             # kerja sementara & log
+├── output/                  # hasil Stage 1-4 per video
+└── final/                   # video jadi + caption.txt
 ```
+
+`cache/transcripts/` menyimpan transkrip video yang sudah pernah diproses supaya
+tidak perlu ditarik ulang dari YouTube. Aman untuk dibiarkan; menghapusnya hanya
+membuat proses berikutnya lebih lambat dan menambah risiko kena blokir IP.
+
+## Perkakas pengembangan
+
+Folder `tests/` dan `tools/` (termasuk skrip verifikasi UI dan `tools/cleanup.py`)
+tidak diperlukan aplikasi saat berjalan, jadi tidak ada di folder kerja ini.
+Semuanya tersimpan lengkap di branch **`dev`**:
+
+```bash
+git checkout dev -- tests tools
+```
+
+Sumber build halaman Customize (`sketches/clipper-ui-mockup/src/` + `build.py`)
+juga ada di sana. Yang dipakai aplikasi hanya `index.html` hasil build-nya —
+jangan menyuntingnya langsung; ambil `src/` dari branch `dev`, edit di situ, lalu
+jalankan `build.py`.
